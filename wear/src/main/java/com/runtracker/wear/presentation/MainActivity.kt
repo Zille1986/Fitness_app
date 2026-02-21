@@ -74,10 +74,7 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        
-        // Set lower screen brightness during tracking to save battery
-        setLowBrightness()
-        
+
         requestPermissions()
         bindService()
 
@@ -187,6 +184,16 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
     companion object {
         private const val PERMISSION_REQUEST_CODE = 100
         private const val SOS_HOLD_DURATION_MS = 3000L // 3 seconds
+
+        // Pre-computed HR zone ranges (based on max HR of 190)
+        // Avoids recalculating on every workout start
+        private val HR_ZONE_CACHE = mapOf(
+            1 to Pair(95, 114),    // Zone 1: 50-60%
+            2 to Pair(114, 133),   // Zone 2: 60-70%
+            3 to Pair(133, 152),   // Zone 3: 70-80%
+            4 to Pair(152, 171),   // Zone 4: 80-90%
+            5 to Pair(171, 190)    // Zone 5: 90-100%
+        )
     }
     
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -365,16 +372,7 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
     }
     
     private fun getHrRangeForZone(zone: Int): Pair<Int, Int> {
-        // Default max HR of 190, can be personalized later
-        val maxHr = 190
-        return when (zone) {
-            1 -> Pair((maxHr * 0.50).toInt(), (maxHr * 0.60).toInt()) // Zone 1: 50-60%
-            2 -> Pair((maxHr * 0.60).toInt(), (maxHr * 0.70).toInt()) // Zone 2: 60-70%
-            3 -> Pair((maxHr * 0.70).toInt(), (maxHr * 0.80).toInt()) // Zone 3: 70-80%
-            4 -> Pair((maxHr * 0.80).toInt(), (maxHr * 0.90).toInt()) // Zone 4: 80-90%
-            5 -> Pair((maxHr * 0.90).toInt(), maxHr)                   // Zone 5: 90-100%
-            else -> Pair(100, 150)
-        }
+        return HR_ZONE_CACHE[zone] ?: Pair(100, 150)
     }
     
     private fun generateIntervalsForWorkoutType(workoutType: WorkoutType): List<com.runtracker.shared.data.model.Interval> {
@@ -553,6 +551,8 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
 
     override fun onDestroy() {
         super.onDestroy()
+        // Cancel any pending SOS handler callbacks to prevent leaks
+        sosHandler.removeCallbacksAndMessages(null)
         if (isBound) {
             unbindService(serviceConnection)
             isBound = false

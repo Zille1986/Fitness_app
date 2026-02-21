@@ -58,23 +58,31 @@ fun WearRunTrackerApp(
 ) {
     val navController = rememberSwipeDismissableNavController()
 
-    LaunchedEffect(trackingState.isTracking) {
-        if (trackingState.isTracking) {
-            navController.navigate("tracking") {
-                popUpTo("activity_select") { inclusive = false }
+    // Consolidated navigation effect — single source of truth prevents race conditions
+    // between tracking state and pending workout navigation
+    LaunchedEffect(trackingState.isTracking, pendingWorkout) {
+        when {
+            // Tracking takes highest priority
+            trackingState.isTracking -> {
+                if (navController.currentDestination?.route != "tracking") {
+                    navController.navigate("tracking") {
+                        popUpTo("activity_select") { inclusive = false }
+                    }
+                }
             }
-        } else if (!trackingState.isTracking && navController.currentDestination?.route == "tracking") {
-            navController.navigate("activity_select") {
-                popUpTo("activity_select") { inclusive = true }
+            // Pending workout from phone
+            pendingWorkout != null -> {
+                if (navController.currentDestination?.route != "workout_preview") {
+                    navController.navigate("workout_preview") {
+                        popUpTo("activity_select") { inclusive = false }
+                    }
+                }
             }
-        }
-    }
-    
-    // Navigate to preview when a workout is received from phone
-    LaunchedEffect(pendingWorkout) {
-        if (pendingWorkout != null && !trackingState.isTracking) {
-            navController.navigate("workout_preview") {
-                popUpTo("activity_select") { inclusive = false }
+            // Return to activity select when tracking stops
+            navController.currentDestination?.route == "tracking" -> {
+                navController.navigate("activity_select") {
+                    popUpTo("activity_select") { inclusive = true }
+                }
             }
         }
     }
@@ -218,7 +226,9 @@ fun ActivitySelectScreen(
             modifier = Modifier.fillMaxSize(),
             state = listState,
             horizontalAlignment = Alignment.CenterHorizontally,
-            autoCentering = AutoCenteringParams(itemIndex = 0)
+            autoCentering = AutoCenteringParams(itemIndex = 0),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             item {
                 Text(

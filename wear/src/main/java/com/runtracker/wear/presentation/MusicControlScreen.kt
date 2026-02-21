@@ -14,6 +14,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun MusicControlScreen(
@@ -22,22 +25,26 @@ fun MusicControlScreen(
     val context = LocalContext.current
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     var isPlaying by remember { mutableStateOf(audioManager.isMusicActive) }
-    var volume by remember { 
+    var volume by remember {
         mutableStateOf(
-            (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) * 100) / 
+            (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) * 100) /
             audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        ) 
+        )
     }
+    val scope = rememberCoroutineScope()
 
+    // Dispatch media key events off the main thread to prevent UI jank
     fun sendMediaKey(keyCode: Int) {
-        val downEvent = KeyEvent(KeyEvent.ACTION_DOWN, keyCode)
-        val upEvent = KeyEvent(KeyEvent.ACTION_UP, keyCode)
-        audioManager.dispatchMediaKeyEvent(downEvent)
-        audioManager.dispatchMediaKeyEvent(upEvent)
+        scope.launch(Dispatchers.Default) {
+            val downEvent = KeyEvent(KeyEvent.ACTION_DOWN, keyCode)
+            val upEvent = KeyEvent(KeyEvent.ACTION_UP, keyCode)
+            audioManager.dispatchMediaKeyEvent(downEvent)
+            audioManager.dispatchMediaKeyEvent(upEvent)
+        }
     }
 
     fun updateVolume() {
-        volume = (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) * 100) / 
+        volume = (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) * 100) /
                  audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
     }
 
@@ -87,7 +94,7 @@ fun MusicControlScreen(
 
                 // Play/Pause
                 Button(
-                    onClick = { 
+                    onClick = {
                         sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
                         isPlaying = !isPlaying
                     },
@@ -121,7 +128,7 @@ fun MusicControlScreen(
             ) {
                 // Volume down
                 Button(
-                    onClick = { 
+                    onClick = {
                         audioManager.adjustStreamVolume(
                             AudioManager.STREAM_MUSIC,
                             AudioManager.ADJUST_LOWER,
@@ -137,7 +144,7 @@ fun MusicControlScreen(
 
                 // Volume up
                 Button(
-                    onClick = { 
+                    onClick = {
                         audioManager.adjustStreamVolume(
                             AudioManager.STREAM_MUSIC,
                             AudioManager.ADJUST_RAISE,

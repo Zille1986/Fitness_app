@@ -15,10 +15,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class PhoneDataListenerService : WearableListenerService() {
-    
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val gson = Gson()
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
@@ -105,21 +106,23 @@ class PhoneDataListenerService : WearableListenerService() {
             Log.d("PhoneDataListener", "Received custom workouts: ${workoutsJson?.take(200)}...")
             
             workoutsJson?.let { json ->
-                // Store in shared preferences for the watch app to access
-                val sharedPrefs = getSharedPreferences("custom_workouts", MODE_PRIVATE)
-                sharedPrefs.edit()
-                    .putString("workouts_list", json)
-                    .putLong("last_sync", System.currentTimeMillis())
-                    .apply()
-                
-                Log.d("PhoneDataListener", "Custom workouts saved to shared preferences")
-                
+                // Store in shared preferences on IO thread
                 serviceScope.launch {
-                    Toast.makeText(
-                        applicationContext,
-                        "Custom workouts synced",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    val sharedPrefs = getSharedPreferences("custom_workouts", MODE_PRIVATE)
+                    sharedPrefs.edit()
+                        .putString("workouts_list", json)
+                        .putLong("last_sync", System.currentTimeMillis())
+                        .commit() // commit() on IO thread is fine and synchronous
+
+                    Log.d("PhoneDataListener", "Custom workouts saved to shared preferences")
+
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            applicationContext,
+                            "Custom workouts synced",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -135,13 +138,15 @@ class PhoneDataListenerService : WearableListenerService() {
             Log.d("PhoneDataListener", "Received gamification data")
             
             gamificationJson?.let { json ->
-                val sharedPrefs = getSharedPreferences("gamification", MODE_PRIVATE)
-                sharedPrefs.edit()
-                    .putString("gamification_data", json)
-                    .putLong("last_sync", System.currentTimeMillis())
-                    .apply()
-                
-                Log.d("PhoneDataListener", "Gamification data saved")
+                serviceScope.launch {
+                    val sharedPrefs = getSharedPreferences("gamification", MODE_PRIVATE)
+                    sharedPrefs.edit()
+                        .putString("gamification_data", json)
+                        .putLong("last_sync", System.currentTimeMillis())
+                        .commit()
+
+                    Log.d("PhoneDataListener", "Gamification data saved")
+                }
             }
         } catch (e: Exception) {
             Log.e("PhoneDataListener", "Error handling gamification sync", e)
@@ -173,8 +178,8 @@ class PhoneDataListenerService : WearableListenerService() {
                 }
                 startActivity(launchIntent)
                 
-                // Show toast that workout is ready for preview
-                serviceScope.launch {
+                // Show toast that workout is ready for preview (must be on Main thread)
+                serviceScope.launch(Dispatchers.Main) {
                     Toast.makeText(
                         applicationContext,
                         "Workout received - tap to preview",
@@ -193,16 +198,32 @@ class PhoneDataListenerService : WearableListenerService() {
 }
 
 object WorkoutHolder {
-    var pendingWorkout: ScheduledWorkout? = null
-    var pendingIntervals: List<com.runtracker.shared.data.model.Interval>? = null
-    var pendingActivityType: String? = null  // RUNNING, SWIMMING, CYCLING
-    var pendingSwimType: String? = null      // POOL, OCEAN, LAKE, OPEN_WATER
-    var pendingCyclingType: String? = null   // OUTDOOR, INDOOR, SMART_TRAINER
-    var pendingSwimWorkoutType: String? = null
-    var pendingCyclingWorkoutType: String? = null
-    var pendingPoolLength: Int? = null       // Pool length in meters (25, 33, 50)
-    var pendingTargetHrMin: Int? = null
-    var pendingTargetHrMax: Int? = null
-    var pendingTargetHrZone: Int? = null
-    var pendingWorkoutDuration: Int? = null  // in seconds
+    @Volatile var pendingWorkout: ScheduledWorkout? = null
+    @Volatile var pendingIntervals: List<com.runtracker.shared.data.model.Interval>? = null
+    @Volatile var pendingActivityType: String? = null  // RUNNING, SWIMMING, CYCLING
+    @Volatile var pendingSwimType: String? = null      // POOL, OCEAN, LAKE, OPEN_WATER
+    @Volatile var pendingCyclingType: String? = null   // OUTDOOR, INDOOR, SMART_TRAINER
+    @Volatile var pendingSwimWorkoutType: String? = null
+    @Volatile var pendingCyclingWorkoutType: String? = null
+    @Volatile var pendingPoolLength: Int? = null       // Pool length in meters (25, 33, 50)
+    @Volatile var pendingTargetHrMin: Int? = null
+    @Volatile var pendingTargetHrMax: Int? = null
+    @Volatile var pendingTargetHrZone: Int? = null
+    @Volatile var pendingWorkoutDuration: Int? = null  // in seconds
+
+    @Synchronized
+    fun clearAll() {
+        pendingWorkout = null
+        pendingIntervals = null
+        pendingActivityType = null
+        pendingSwimType = null
+        pendingCyclingType = null
+        pendingSwimWorkoutType = null
+        pendingCyclingWorkoutType = null
+        pendingPoolLength = null
+        pendingTargetHrMin = null
+        pendingTargetHrMax = null
+        pendingTargetHrZone = null
+        pendingWorkoutDuration = null
+    }
 }

@@ -200,19 +200,8 @@ class WearRunTrackingService : Service() {
                 val targetHrZone = WorkoutHolder.pendingTargetHrZone
                 val workoutDuration = WorkoutHolder.pendingWorkoutDuration
                 
-                // Clear pending data immediately after capture
-                WorkoutHolder.pendingWorkout = null
-                WorkoutHolder.pendingIntervals = null
-                WorkoutHolder.pendingActivityType = null
-                WorkoutHolder.pendingSwimType = null
-                WorkoutHolder.pendingCyclingType = null
-                WorkoutHolder.pendingSwimWorkoutType = null
-                WorkoutHolder.pendingCyclingWorkoutType = null
-                WorkoutHolder.pendingPoolLength = null
-                WorkoutHolder.pendingTargetHrMin = null
-                WorkoutHolder.pendingTargetHrMax = null
-                WorkoutHolder.pendingTargetHrZone = null
-                WorkoutHolder.pendingWorkoutDuration = null
+                // Clear pending data atomically after capture
+                WorkoutHolder.clearAll()
 
                 // Enable GPS for outdoor activities
                 val enableGps = activityType == "RUNNING" || 
@@ -693,8 +682,11 @@ class WearRunTrackingService : Service() {
     }
 
     private suspend fun syncRunToPhoneAndWait(run: Run) {
-        val runJson = gson.toJson(run)
-        val jsonSizeKb = runJson.toByteArray().size / 1024
+        // Serialize JSON on Default dispatcher to avoid blocking IO/Main
+        val (runJson, jsonSizeKb) = withContext(Dispatchers.Default) {
+            val json = gson.toJson(run)
+            json to (json.toByteArray().size / 1024)
+        }
 
         android.util.Log.d("WearTracking", "Run JSON size: ${jsonSizeKb}KB, routePoints: ${run.routePoints.size}")
 
@@ -835,7 +827,7 @@ class WearRunTrackingService : Service() {
     private suspend fun syncSwimToPhoneAndWait(swim: SwimmingWorkout) {
         try {
             android.util.Log.d("WearTracking", "Syncing swim to phone: distance=${swim.distanceMeters}m, duration=${swim.durationMillis}ms")
-            val swimJson = gson.toJson(swim)
+            val swimJson = withContext(Dispatchers.Default) { gson.toJson(swim) }
             val dataClient = Wearable.getDataClient(this@WearRunTrackingService)
             
             val putDataRequest = com.google.android.gms.wearable.PutDataMapRequest
@@ -858,7 +850,7 @@ class WearRunTrackingService : Service() {
     private suspend fun syncCyclingToPhoneAndWait(ride: CyclingWorkout) {
         try {
             android.util.Log.d("WearTracking", "Syncing ride to phone: distance=${ride.distanceMeters}m, duration=${ride.durationMillis}ms")
-            val rideJson = gson.toJson(ride)
+            val rideJson = withContext(Dispatchers.Default) { gson.toJson(ride) }
             val dataClient = Wearable.getDataClient(this@WearRunTrackingService)
             
             val putDataRequest = com.google.android.gms.wearable.PutDataMapRequest
