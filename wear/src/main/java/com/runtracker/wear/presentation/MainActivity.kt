@@ -18,8 +18,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.wear.ambient.AmbientModeSupport
 import com.runtracker.shared.data.model.ScheduledWorkout
 import com.runtracker.shared.data.model.WorkoutType
-import com.runtracker.wear.presentation.SwimWorkoutTypeWatch
-import com.runtracker.wear.presentation.CycleWorkoutTypeWatch
+import com.runtracker.wear.presentation.screens.SwimWorkoutTypeWatch
+import com.runtracker.wear.presentation.screens.CycleWorkoutTypeWatch
+import com.runtracker.wear.presentation.screens.HardwareButtonSosDialog
 import com.runtracker.wear.presentation.theme.WearRunTrackerTheme
 import com.runtracker.wear.service.WearRunTrackingService
 import com.runtracker.wear.service.WearTrackingState
