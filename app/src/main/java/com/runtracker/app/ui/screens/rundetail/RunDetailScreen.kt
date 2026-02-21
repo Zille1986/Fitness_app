@@ -1,16 +1,22 @@
 package com.runtracker.app.ui.screens.rundetail
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.runtracker.app.ui.theme.DarkPrimary
+import com.runtracker.app.ui.theme.DarkSurface
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runtracker.shared.data.model.Run
 import com.runtracker.shared.data.model.Split
@@ -149,50 +155,79 @@ fun RunDetailScreen(
 fun RunHeaderCard(run: Run) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
+            containerColor = Color.Transparent
         )
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            DarkPrimary.copy(alpha = 0.15f),
+                            DarkSurface
+                        )
+                    )
+                )
         ) {
-            Text(
-                text = formatDate(run.startTime),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+            // Radial glow behind distance number
+            Box(
+                modifier = Modifier
+                    .size(200.dp)
+                    .align(Alignment.Center)
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                DarkPrimary.copy(alpha = 0.2f),
+                                Color.Transparent
+                            )
+                        )
+                    )
             )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = String.format("%.2f", run.distanceKm),
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Text(
-                text = "kilometers",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                HeaderStatItem(
-                    value = run.durationFormatted,
-                    label = "Duration"
+                Text(
+                    text = formatDate(run.startTime),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
-                HeaderStatItem(
-                    value = "${run.avgPaceFormatted} /km",
-                    label = "Avg Pace"
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = String.format("%.2f", run.distanceKm),
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = DarkPrimary
                 )
+                Text(
+                    text = "kilometers",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    HeaderStatItem(
+                        value = run.durationFormatted,
+                        label = "Duration"
+                    )
+                    HeaderStatItem(
+                        value = "${run.avgPaceFormatted} /km",
+                        label = "Avg Pace"
+                    )
+                }
             }
         }
     }
@@ -205,19 +240,22 @@ fun HeaderStatItem(value: String, label: String) {
             text = value,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer
+            color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
         )
     }
 }
 
 @Composable
 fun RunStatsGrid(run: Run) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp)
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 StatGridItem(
@@ -303,7 +341,10 @@ fun StatGridItem(
 
 @Composable
 fun SplitsCard(splits: List<Split>) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp)
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -338,10 +379,17 @@ fun SplitsCard(splits: List<Split>) {
             Divider(modifier = Modifier.padding(vertical = 8.dp))
             
             val avgPace = splits.map { it.paceSecondsPerKm }.average()
-            
+            val paceThresholdFast = avgPace * 0.95  // 5% faster = green
+            val paceThresholdSlow = avgPace * 1.05  // 5% slower = orange
+
             splits.forEach { split ->
-                val isFaster = split.paceSecondsPerKm < avgPace
-                
+                // 3-tier pace coloring: green (fast), teal (on pace), orange (slow)
+                val paceColor = when {
+                    split.paceSecondsPerKm < paceThresholdFast -> Color(0xFF7EE787)   // Green - fast
+                    split.paceSecondsPerKm > paceThresholdSlow -> Color(0xFFFFA657)   // Orange - slow
+                    else -> DarkPrimary                                                // Teal - on pace
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -362,8 +410,7 @@ fun SplitsCard(splits: List<Split>) {
                         text = split.paceFormatted,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (isFaster) MaterialTheme.colorScheme.primary 
-                               else MaterialTheme.colorScheme.onSurface,
+                        color = paceColor,
                         modifier = Modifier.width(80.dp)
                     )
                     Text(

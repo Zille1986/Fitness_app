@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runtracker.app.ui.components.*
+import com.runtracker.app.ui.theme.GradientColors
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -85,30 +86,16 @@ fun HomeScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = GradientColors.ScreenBackground
+                    )
+                )
                 .padding(padding),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Motivational Quote
-            item {
-                MotivationalQuoteCard(
-                    quote = quote.first,
-                    author = quote.second
-                )
-            }
-            
-            // Streak Counter
-            if (uiState.currentStreak > 0 || uiState.longestStreak > 0) {
-                item {
-                    StreakCard(
-                        currentStreak = uiState.currentStreak,
-                        longestStreak = uiState.longestStreak,
-                        message = uiState.streakMessage
-                    )
-                }
-            }
-            
-            // Today's Exercises with gradient
+            // Today's Exercises first (most actionable)
             item {
                 TodaysExercisesCard(
                     todayWorkouts = uiState.todayWorkouts,
@@ -121,7 +108,18 @@ fun HomeScreen(
                     }
                 )
             }
-            
+
+            // Streak Counter
+            if (uiState.currentStreak > 0 || uiState.longestStreak > 0) {
+                item {
+                    StreakCard(
+                        currentStreak = uiState.currentStreak,
+                        longestStreak = uiState.longestStreak,
+                        message = uiState.streakMessage
+                    )
+                }
+            }
+
             // Weekly Activity Overview
             item {
                 WeeklyActivityCard(
@@ -150,6 +148,14 @@ fun HomeScreen(
                     proteinConsumed = uiState.proteinConsumed,
                     proteinGoal = uiState.proteinGoal,
                     onViewNutrition = onNavigateToNutrition
+                )
+            }
+
+            // Motivational Quote (subtle, at the bottom)
+            item {
+                MotivationalQuoteCard(
+                    quote = quote.first,
+                    author = quote.second
                 )
             }
         }
@@ -410,18 +416,34 @@ private fun CompactActivityItem(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .background(color.copy(alpha = 0.2f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(20.dp)
+            Box(contentAlignment = Alignment.Center) {
+                // Radial glow behind icon
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    color.copy(alpha = 0.25f),
+                                    Color.Transparent
+                                )
+                            ),
+                            shape = CircleShape
+                        )
                 )
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(color.copy(alpha = 0.2f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = color,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(10.dp))
             Column {

@@ -39,7 +39,7 @@ object WorkoutGradients {
     )
     
     val gym = Brush.linearGradient(
-        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)),
+        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2), Color(0xFF5E35B1)),
         start = Offset(0f, 0f),
         end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
     )
@@ -171,25 +171,52 @@ fun ModernWorkoutCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(240.dp)
-            .shadow(
-                elevation = 16.dp,
-                shape = RoundedCornerShape(24.dp),
-                ambientColor = Color.Black.copy(alpha = 0.3f),
-                spotColor = Color.Black.copy(alpha = 0.3f)
-            )
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
+    // Get the gradient's primary color for the glow
+    val glowColor = when (data.type) {
+        WorkoutType.RUNNING -> Color(0xFFFF6B35)
+        WorkoutType.GYM -> Color(0xFF667EEA)
+        WorkoutType.CYCLING -> Color(0xFF11998E)
+        WorkoutType.RECOVERY -> Color(0xFF4FACFE)
+        WorkoutType.MINDFULNESS -> Color(0xFFA18CD1)
+        WorkoutType.CHALLENGE -> Color(0xFFFDC830)
+    }
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        // Radial glow behind the card
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .background(WorkoutGradients.forWorkoutType(data.type))
+                .matchParentSize()
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            glowColor.copy(alpha = 0.15f),
+                            Color.Transparent
+                        ),
+                        radius = 500f
+                    ),
+                    shape = RoundedCornerShape(28.dp)
+                )
+        )
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(240.dp)
+                .shadow(
+                    elevation = 16.dp,
+                    shape = RoundedCornerShape(24.dp),
+                    ambientColor = glowColor.copy(alpha = 0.2f),
+                    spotColor = glowColor.copy(alpha = 0.2f)
+                )
+                .clickable(onClick = onClick),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(WorkoutGradients.forWorkoutType(data.type))
+            ) {
             // Background icon
             Icon(
                 imageVector = data.icon,
@@ -284,6 +311,7 @@ fun ModernWorkoutCard(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -380,9 +408,13 @@ fun RecentActivityCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = androidx.compose.foundation.BorderStroke(
+            width = 0.5.dp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -572,9 +604,13 @@ fun ActivityCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        border = androidx.compose.foundation.BorderStroke(
+            width = 0.5.dp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Gradient accent bar at top

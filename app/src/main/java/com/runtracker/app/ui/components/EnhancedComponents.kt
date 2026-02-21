@@ -91,16 +91,16 @@ fun GlassCard(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
         ),
         border = androidx.compose.foundation.BorderStroke(
-            width = 1.dp,
+            width = 0.5.dp,
             brush = Brush.linearGradient(
                 colors = listOf(
-                    accentColor.copy(alpha = 0.3f),
-                    accentColor.copy(alpha = 0.1f)
+                    accentColor.copy(alpha = 0.2f),
+                    accentColor.copy(alpha = 0.05f)
                 )
             )
         )
@@ -110,14 +110,15 @@ fun GlassCard(
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = 0.05f),
-                            Color.Transparent
+                            Color.White.copy(alpha = 0.08f),
+                            Color.Transparent,
+                            accentColor.copy(alpha = 0.03f)
                         )
                     )
                 )
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(20.dp),
                 content = content
             )
         }
@@ -132,7 +133,23 @@ fun GlowingAccentCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     Box(modifier = modifier) {
-        // Glow effect behind the card
+        // Outer wide glow for ambient luminance
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .padding(2.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            accentColor.copy(alpha = glowIntensity * 0.4f),
+                            Color.Transparent
+                        ),
+                        radius = 600f
+                    ),
+                    shape = RoundedCornerShape(28.dp)
+                )
+        )
+        // Inner focused glow
         Box(
             modifier = Modifier
                 .matchParentSize()
@@ -142,24 +159,30 @@ fun GlowingAccentCard(
                         colors = listOf(
                             accentColor.copy(alpha = glowIntensity),
                             Color.Transparent
-                        )
+                        ),
+                        radius = 400f
                     ),
-                    shape = RoundedCornerShape(24.dp)
+                    shape = RoundedCornerShape(26.dp)
                 )
         )
-        
+
         Card(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
             ),
             border = androidx.compose.foundation.BorderStroke(
-                width = 1.dp,
-                color = accentColor.copy(alpha = 0.2f)
+                width = 0.5.dp,
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        accentColor.copy(alpha = 0.3f),
+                        accentColor.copy(alpha = 0.1f)
+                    )
+                )
             )
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(20.dp),
                 content = content
             )
         }
@@ -360,8 +383,18 @@ fun EnhancedBarChart(
                         .height((80 * (value / maxValue) * animatedProgress).dp.coerceAtLeast(4.dp))
                         .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                         .background(
-                            if (value > 0) barColor
-                            else MaterialTheme.colorScheme.surfaceVariant
+                            if (value > 0) Brush.verticalGradient(
+                                colors = listOf(
+                                    barColor,
+                                    barColor.copy(alpha = 0.5f)
+                                )
+                            )
+                            else Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.surfaceVariant,
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            )
                         )
                 )
                 Spacer(modifier = Modifier.height(6.dp))
@@ -447,22 +480,22 @@ fun MotivationalQuoteCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
         ),
         border = androidx.compose.foundation.BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+            width = 0.5.dp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
         )
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.Top
         ) {
             Icon(
                 Icons.Default.FormatQuote,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                modifier = Modifier.size(16.dp)
             )
             Spacer(modifier = Modifier.width(10.dp))
             Column {
@@ -495,38 +528,61 @@ fun StatCard(
 ) {
     Card(
         modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = color.copy(alpha = 0.1f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            width = 0.5.dp,
+            color = color.copy(alpha = 0.1f)
         )
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(28.dp)
+        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+            // Left accent gradient bar
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                color,
+                                color.copy(alpha = 0.3f)
+                            )
+                        )
+                    )
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = color
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (subValue != null) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = subValue,
-                    style = MaterialTheme.typography.labelSmall,
+                    text = value,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = color
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (subValue != null) {
+                    Text(
+                        text = subValue,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

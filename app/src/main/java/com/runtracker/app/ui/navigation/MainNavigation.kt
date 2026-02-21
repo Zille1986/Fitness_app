@@ -3,6 +3,7 @@ package com.runtracker.app.ui.navigation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -10,9 +11,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.runtracker.app.ui.theme.GradientColors
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -122,10 +127,25 @@ fun MainNavigationScreen(
     Scaffold(
         bottomBar = {
             NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 tonalElevation = 0.dp,
-                modifier = Modifier.height(64.dp)
+                modifier = Modifier
+                    .height(64.dp)
+                    .drawBehind {
+                        // Gradient top border: teal → purple → orange
+                        val borderHeight = 0.5.dp.toPx()
+                        drawRect(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color(0xFF00E5CC).copy(alpha = 0.3f),
+                                    Color(0xFF7C4DFF).copy(alpha = 0.3f),
+                                    Color(0xFFFFA657).copy(alpha = 0.3f)
+                                )
+                            ),
+                            size = androidx.compose.ui.geometry.Size(size.width, borderHeight)
+                        )
+                    }
             ) {
                 bottomNavItems.forEach { item ->
                     val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
@@ -151,7 +171,7 @@ fun MainNavigationScreen(
                             selectedTextColor = MaterialTheme.colorScheme.primary,
                             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            indicatorColor = Color.Transparent
+                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                         ),
                         onClick = {
                             bottomNavController.navigate(item.route) {

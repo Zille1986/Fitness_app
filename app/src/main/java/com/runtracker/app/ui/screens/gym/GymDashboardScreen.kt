@@ -723,7 +723,7 @@ fun ModernWeeklyGymStatsCard(
                         .clip(CircleShape)
                         .background(
                             Brush.linearGradient(
-                                colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                                colors = com.runtracker.app.ui.theme.GradientColors.PurpleBlue
                             )
                         ),
                     contentAlignment = Alignment.Center
@@ -889,7 +889,7 @@ fun ModernEmptyGymState(modifier: Modifier = Modifier) {
                     .clip(CircleShape)
                     .background(
                         Brush.linearGradient(
-                            colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                            colors = com.runtracker.app.ui.theme.GradientColors.PurpleBlue
                         )
                     ),
                 contentAlignment = Alignment.Center
@@ -927,10 +927,10 @@ fun ModernGymStartButton(
         modifier = modifier
             .height(56.dp)
             .shadow(
-                elevation = 12.dp,
+                elevation = 20.dp,
                 shape = RoundedCornerShape(28.dp),
-                ambientColor = Color(0xFF667EEA).copy(alpha = 0.4f),
-                spotColor = Color(0xFF667EEA).copy(alpha = 0.4f)
+                ambientColor = Color(0xFF7C4DFF).copy(alpha = 0.5f),
+                spotColor = Color(0xFF7C4DFF).copy(alpha = 0.5f)
             ),
         shape = RoundedCornerShape(28.dp),
         colors = ButtonDefaults.buttonColors(
