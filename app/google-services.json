@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "936149650560",
+    "project_id": "exercise-app-6c57b",
+    "storage_bucket": "exercise-app-6c57b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:936149650560:android:960f30b96a995837b62a65",
+        "android_client_info": {
+          "package_name": "com.runtracker.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCvK8jmuYq-QLLXDpn92QNlhzfEzFgVcQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

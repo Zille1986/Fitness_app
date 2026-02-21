@@ -1,0 +1,53 @@
+# Built application files
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+build/
+
+# Gradle files
+.gradle/
+gradle-wrapper.jar
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Android Studio
+*.iml
+.idea/workspace.xml
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+.idea/deploymentTargetSelector.xml
+.idea/deviceManager.xml
+.idea/markdown.xml
+.idea/migrations.xml
+.idea/AndroidProjectSystem.xml
+
+# Keystore files
+*.jks
+*.keystore
+
+# Google Services (contains API keys)
+# Uncomment if you don't want to share:
+# google-services.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log

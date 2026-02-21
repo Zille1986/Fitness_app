@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Modern running figure with gradient effect -->
+    <group android:scaleX="0.55"
+        android:scaleY="0.55"
+        android:translateX="24"
+        android:translateY="24">
+        <!-- Outer glow ring -->
+        <path
+            android:fillColor="#00E5CC"
+            android:fillAlpha="0.3"
+            android:pathData="M54,20c-18.8,0 -34,15.2 -34,34s15.2,34 34,34s34,-15.2 34,-34S72.8,20 54,20zM54,82c-15.5,0 -28,-12.5 -28,-28s12.5,-28 28,-28s28,12.5 28,28S69.5,82 54,82z"/>
+        <!-- Main ring -->
+        <path
+            android:fillColor="#00E5CC"
+            android:pathData="M54,26c-15.5,0 -28,12.5 -28,28s12.5,28 28,28s28,-12.5 28,-28S69.5,26 54,26zM54,76c-12.1,0 -22,-9.9 -22,-22s9.9,-22 22,-22s22,9.9 22,22S66.1,76 54,76z"/>
+        <!-- Running figure - head -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M58,38m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0"/>
+        <!-- Running figure - body -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M56,45l-3,12l8,0l-3,-12z"/>
+        <!-- Running figure - front leg -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:strokeWidth="3"
+            android:strokeColor="#FFFFFF"
+            android:pathData="M58,57l8,10"/>
+        <!-- Running figure - back leg -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:strokeWidth="3"
+            android:strokeColor="#FFFFFF"
+            android:pathData="M54,57l-6,8"/>
+        <!-- Running figure - front arm -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:strokeWidth="2.5"
+            android:strokeColor="#FFFFFF"
+            android:pathData="M54,48l-7,5"/>
+        <!-- Running figure - back arm -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:strokeWidth="2.5"
+            android:strokeColor="#FFFFFF"
+            android:pathData="M60,48l5,3"/>
+        <!-- Activity dots -->
+        <path
+            android:fillColor="#7EE787"
+            android:pathData="M32,54m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0"/>
+        <path
+            android:fillColor="#00E5CC"
+            android:pathData="M76,54m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0"/>
+    </group>
+</vector>
