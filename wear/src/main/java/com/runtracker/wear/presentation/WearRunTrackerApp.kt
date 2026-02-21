@@ -1,9 +1,7 @@
 package com.runtracker.wear.presentation
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -218,17 +216,20 @@ fun ActivitySelectScreen(
     onMusicControl: () -> Unit = {}
 ) {
     val listState = rememberScalingLazyListState()
-    
+
     Scaffold(
-        timeText = { TimeText() }
+        timeText = { TimeText() },
+        positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
     ) {
         ScalingLazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = listState,
             horizontalAlignment = Alignment.CenterHorizontally,
             autoCentering = AutoCenteringParams(itemIndex = 0),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 26.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            // Snap fling gives native Wear OS scroll feel (like Fitbit)
+            flingBehavior = ScalingLazyColumnDefaults.snapFlingBehavior(state = listState)
         ) {
             item {
                 Text(
@@ -442,11 +443,11 @@ fun SwimmingHomeScreen(
     
     SwipeToDismissBox(
         state = swipeToDismissBoxState,
-        onDismissed = { 
+        onDismissed = {
             if (showWorkouts) {
                 showWorkouts = false
             } else {
-                onBack() 
+                onBack()
             }
         }
     ) { isBackground ->
@@ -455,7 +456,9 @@ fun SwimmingHomeScreen(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
-                autoCentering = AutoCenteringParams(itemIndex = 0)
+                autoCentering = AutoCenteringParams(itemIndex = 0),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 26.dp),
+                flingBehavior = ScalingLazyColumnDefaults.snapFlingBehavior(state = listState)
             ) {
                 if (!showWorkouts) {
                     // Swim type selection
@@ -733,7 +736,9 @@ fun CyclingHomeScreen(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
-                autoCentering = AutoCenteringParams(itemIndex = 0)
+                autoCentering = AutoCenteringParams(itemIndex = 0),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 26.dp),
+                flingBehavior = ScalingLazyColumnDefaults.snapFlingBehavior(state = listState)
             ) {
                 if (!showWorkouts) {
                     item {
@@ -944,19 +949,30 @@ fun HomeScreen(
     onBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val gamificationData = remember {
-        val prefs = context.getSharedPreferences("gamification", Context.MODE_PRIVATE)
-        val json = prefs.getString("gamification_data", null)
-        if (json != null) {
-            try {
-                com.google.gson.Gson().fromJson(json, Map::class.java) as? Map<String, Any>
-            } catch (e: Exception) { null }
-        } else null
+    // Load gamification data off composition path — SharedPreferences + Gson.fromJson
+    // can block the main thread for 20-50ms on Wear OS hardware
+    var currentStreak by remember { mutableStateOf(0) }
+    var moveProgress by remember { mutableStateOf(0f) }
+    var exerciseProgress by remember { mutableStateOf(0f) }
+    var hasGamificationData by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val prefs = context.getSharedPreferences("gamification", Context.MODE_PRIVATE)
+            val json = prefs.getString("gamification_data", null)
+            if (json != null) {
+                try {
+                    val data = com.google.gson.Gson().fromJson(json, Map::class.java) as? Map<String, Any>
+                    data?.let {
+                        currentStreak = (it["currentStreak"] as? Double)?.toInt() ?: 0
+                        moveProgress = (it["moveProgress"] as? Double)?.toFloat() ?: 0f
+                        exerciseProgress = (it["exerciseProgress"] as? Double)?.toFloat() ?: 0f
+                        hasGamificationData = true
+                    }
+                } catch (_: Exception) { }
+            }
+        }
     }
-    
-    val currentStreak = (gamificationData?.get("currentStreak") as? Double)?.toInt() ?: 0
-    val moveProgress = (gamificationData?.get("moveProgress") as? Double)?.toFloat() ?: 0f
-    val exerciseProgress = (gamificationData?.get("exerciseProgress") as? Double)?.toFloat() ?: 0f
     
     Scaffold(
         timeText = { TimeText() }
@@ -973,7 +989,7 @@ fun HomeScreen(
                 modifier = Modifier.padding(12.dp)
             ) {
                 // Mini activity rings at top
-                if (gamificationData != null) {
+                if (hasGamificationData) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -1467,15 +1483,12 @@ fun TrackingPagerScreen(
                 )
             }
     ) {
-        AnimatedContent(
+        // Crossfade is much lighter than AnimatedContent on Wear OS:
+        // - AnimatedContent keeps both old and new pages in memory during transition
+        // - Crossfade only fades opacity — single composable at a time after transition
+        Crossfade(
             targetState = currentPage,
-            transitionSpec = {
-                if (targetState > initialState) {
-                    slideInVertically { height -> height } togetherWith slideOutVertically { height -> -height }
-                } else {
-                    slideInVertically { height -> -height } togetherWith slideOutVertically { height -> height }
-                }
-            },
+            animationSpec = tween(durationMillis = 200),
             label = "page_transition"
         ) { page ->
             when (page) {
@@ -1724,23 +1737,34 @@ fun HeartRateZonePage(
     val hrMin = trackingState.targetHrMin ?: 100
     val hrMax = trackingState.targetHrMax ?: 180
     val currentHr = trackingState.heartRate ?: 0
-    
-    // Calculate position in range (0 = at min, 1 = at max)
-    val rangeSize = (hrMax - hrMin).coerceAtLeast(1)
-    val position = ((currentHr - hrMin).toFloat() / rangeSize).coerceIn(-0.3f, 1.3f)
-    
-    val zoneColor = when {
-        currentHr < hrMin -> Color(0xFF64B5F6) // Blue - too low
-        currentHr > hrMax -> Color(0xFFE57373) // Red - too high
-        else -> Color(0xFF81C784) // Green - in zone
+
+    // Cache derived values — only recompute when inputs change
+    val rangeSize = remember(hrMin, hrMax) { (hrMax - hrMin).coerceAtLeast(1) }
+    val position = remember(currentHr, hrMin, rangeSize) {
+        ((currentHr - hrMin).toFloat() / rangeSize).coerceIn(-0.3f, 1.3f)
     }
-    
-    val statusText = when {
-        currentHr < hrMin -> "TOO LOW"
-        currentHr > hrMax -> "TOO HIGH"
-        else -> "IN ZONE"
+
+    val zoneColor = remember(currentHr, hrMin, hrMax) {
+        when {
+            currentHr < hrMin -> Color(0xFF64B5F6)
+            currentHr > hrMax -> Color(0xFFE57373)
+            else -> Color(0xFF81C784)
+        }
     }
-    
+
+    val statusText = remember(currentHr, hrMin, hrMax) {
+        when {
+            currentHr < hrMin -> "TOO LOW"
+            currentHr > hrMax -> "TOO HIGH"
+            else -> "IN ZONE"
+        }
+    }
+
+    // Cache formatted strings to avoid allocation during recomposition
+    val formattedDistance = remember(trackingState.distanceKm) {
+        String.format("%.2f", trackingState.distanceKm)
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1848,7 +1872,7 @@ fun HeartRateZonePage(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = String.format("%.2f", trackingState.distanceKm),
+                        text = formattedDistance,
                         style = MaterialTheme.typography.title3,
                         fontWeight = FontWeight.Bold,
                         color = if (isAmbient) Color.White else MaterialTheme.colors.onSurface
@@ -1859,7 +1883,7 @@ fun HeartRateZonePage(
                         color = if (isAmbient) Color.Gray else MaterialTheme.colors.onSurfaceVariant
                     )
                 }
-                
+
                 if (trackingState.isIntervalWorkout) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
@@ -1888,25 +1912,35 @@ fun PaceZonePage(
     val paceMin = trackingState.targetPaceMin ?: 300.0 // 5:00/km
     val paceMax = trackingState.targetPaceMax ?: 420.0 // 7:00/km
     val currentPace = trackingState.currentPaceSecondsPerKm
-    
-    // For pace, lower is faster. Position: 0 = at max (slow), 1 = at min (fast)
-    val rangeSize = (paceMax - paceMin).coerceAtLeast(1.0)
-    val position = ((paceMax - currentPace) / rangeSize).toFloat().coerceIn(-0.3f, 1.3f)
-    
-    val zoneColor = when {
-        currentPace <= 0 || currentPace.isInfinite() || currentPace.isNaN() -> Color.Gray
-        currentPace < paceMin -> Color(0xFFE57373) // Red - too fast
-        currentPace > paceMax -> Color(0xFF64B5F6) // Blue - too slow
-        else -> Color(0xFF81C784) // Green - in zone
+
+    // Cache derived values — only recompute when inputs change
+    val rangeSize = remember(paceMin, paceMax) { (paceMax - paceMin).coerceAtLeast(1.0) }
+    val position = remember(currentPace, paceMax, rangeSize) {
+        ((paceMax - currentPace) / rangeSize).toFloat().coerceIn(-0.3f, 1.3f)
     }
-    
-    val statusText = when {
-        currentPace <= 0 || currentPace.isInfinite() || currentPace.isNaN() -> "WAITING"
-        currentPace < paceMin -> "TOO FAST"
-        currentPace > paceMax -> "TOO SLOW"
-        else -> "IN ZONE"
+
+    val zoneColor = remember(currentPace, paceMin, paceMax) {
+        when {
+            currentPace <= 0 || currentPace.isInfinite() || currentPace.isNaN() -> Color.Gray
+            currentPace < paceMin -> Color(0xFFE57373)
+            currentPace > paceMax -> Color(0xFF64B5F6)
+            else -> Color(0xFF81C784)
+        }
     }
-    
+
+    val statusText = remember(currentPace, paceMin, paceMax) {
+        when {
+            currentPace <= 0 || currentPace.isInfinite() || currentPace.isNaN() -> "WAITING"
+            currentPace < paceMin -> "TOO FAST"
+            currentPace > paceMax -> "TOO SLOW"
+            else -> "IN ZONE"
+        }
+    }
+
+    val formattedDistance = remember(trackingState.distanceKm) {
+        String.format("%.2f", trackingState.distanceKm)
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -2015,7 +2049,7 @@ fun PaceZonePage(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = String.format("%.2f", trackingState.distanceKm),
+                        text = formattedDistance,
                         style = MaterialTheme.typography.title3,
                         fontWeight = FontWeight.Bold,
                         color = if (isAmbient) Color.White else MaterialTheme.colors.onSurface

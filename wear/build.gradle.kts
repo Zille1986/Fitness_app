@@ -39,7 +39,10 @@ android {
         jvmTarget = "17"
         freeCompilerArgs += listOf(
             "-opt-in=androidx.compose.runtime.ExperimentalComposeApi",
-            "-opt-in=androidx.wear.compose.material.ExperimentalWearMaterialApi"
+            "-opt-in=androidx.wear.compose.material.ExperimentalWearMaterialApi",
+            // Enable strong skipping mode — allows Compose to skip recomposition
+            // of composables with unstable parameters when their values haven't changed
+            "-P", "plugin:androidx.compose.compiler.plugins.kotlin:experimentalStrongSkipping=true"
         )
     }
 
