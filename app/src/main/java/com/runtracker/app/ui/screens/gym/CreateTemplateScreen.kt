@@ -41,7 +41,7 @@ class CreateTemplateViewModel @Inject constructor(
         apiKey = BuildConfig.GEMINI_API_KEY,
         generationConfig = generationConfig {
             temperature = 0.7f
-            maxOutputTokens = 2048
+            maxOutputTokens = 8192
         }
     )
 
@@ -207,9 +207,27 @@ class CreateTemplateViewModel @Inject constructor(
                         appendLine()
                     }
                     
-                    appendLine("Available exercises in the database (use ONLY these exact names):")
-                    availableExercises.groupBy { it.muscleGroup }.forEach { (muscle, exercises) ->
-                        appendLine("$muscle: ${exercises.take(10).joinToString { it.name }}")
+                    // Only include exercises relevant to the focus area to keep prompt small
+                    val focusLower = focus.lowercase()
+                    val relevantExercises = availableExercises.filter { ex ->
+                        val group = ex.muscleGroup.lowercase()
+                        when {
+                            focusLower.contains("full body") -> true
+                            focusLower.contains("push") -> group in listOf("chest", "shoulders", "triceps")
+                            focusLower.contains("pull") -> group in listOf("back", "biceps", "forearms")
+                            focusLower.contains("leg") || focusLower.contains("lower") -> group in listOf("quadriceps", "hamstrings", "glutes", "calves", "legs")
+                            focusLower.contains("upper") -> group in listOf("chest", "back", "shoulders", "biceps", "triceps")
+                            focusLower.contains("core") || focusLower.contains("abs") -> group in listOf("core", "abs", "abdominals")
+                            focusLower.contains("arm") -> group in listOf("biceps", "triceps", "forearms")
+                            focusLower.contains("chest") -> group in listOf("chest", "triceps")
+                            focusLower.contains("back") -> group in listOf("back", "biceps")
+                            focusLower.contains("shoulder") -> group in listOf("shoulders", "triceps")
+                            else -> true
+                        }
+                    }
+                    appendLine("Available exercises (use ONLY these exact names):")
+                    relevantExercises.groupBy { it.muscleGroup }.forEach { (muscle, exercises) ->
+                        appendLine("$muscle: ${exercises.joinToString { it.name }}")
                     }
                     appendLine()
                     appendLine("Respond in this exact JSON format:")
