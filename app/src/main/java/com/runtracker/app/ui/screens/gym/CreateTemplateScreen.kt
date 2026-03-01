@@ -210,18 +210,18 @@ class CreateTemplateViewModel @Inject constructor(
                     // Only include exercises relevant to the focus area to keep prompt small
                     val focusLower = focus.lowercase()
                     val relevantExercises = availableExercises.filter { ex ->
-                        val group = ex.muscleGroup.lowercase()
+                        val group = ex.muscleGroup
                         when {
                             focusLower.contains("full body") -> true
-                            focusLower.contains("push") -> group in listOf("chest", "shoulders", "triceps")
-                            focusLower.contains("pull") -> group in listOf("back", "biceps", "forearms")
-                            focusLower.contains("leg") || focusLower.contains("lower") -> group in listOf("quadriceps", "hamstrings", "glutes", "calves", "legs")
-                            focusLower.contains("upper") -> group in listOf("chest", "back", "shoulders", "biceps", "triceps")
-                            focusLower.contains("core") || focusLower.contains("abs") -> group in listOf("core", "abs", "abdominals")
-                            focusLower.contains("arm") -> group in listOf("biceps", "triceps", "forearms")
-                            focusLower.contains("chest") -> group in listOf("chest", "triceps")
-                            focusLower.contains("back") -> group in listOf("back", "biceps")
-                            focusLower.contains("shoulder") -> group in listOf("shoulders", "triceps")
+                            focusLower.contains("push") -> group in listOf(MuscleGroup.CHEST, MuscleGroup.SHOULDERS, MuscleGroup.TRICEPS)
+                            focusLower.contains("pull") -> group in listOf(MuscleGroup.BACK, MuscleGroup.BICEPS, MuscleGroup.FOREARMS, MuscleGroup.LATS)
+                            focusLower.contains("leg") || focusLower.contains("lower") -> group in listOf(MuscleGroup.QUADS, MuscleGroup.HAMSTRINGS, MuscleGroup.GLUTES, MuscleGroup.CALVES, MuscleGroup.HIP_FLEXORS)
+                            focusLower.contains("upper") -> group in listOf(MuscleGroup.CHEST, MuscleGroup.BACK, MuscleGroup.SHOULDERS, MuscleGroup.BICEPS, MuscleGroup.TRICEPS, MuscleGroup.LATS, MuscleGroup.TRAPS)
+                            focusLower.contains("core") || focusLower.contains("abs") -> group in listOf(MuscleGroup.ABS, MuscleGroup.OBLIQUES, MuscleGroup.LOWER_BACK)
+                            focusLower.contains("arm") -> group in listOf(MuscleGroup.BICEPS, MuscleGroup.TRICEPS, MuscleGroup.FOREARMS)
+                            focusLower.contains("chest") -> group in listOf(MuscleGroup.CHEST, MuscleGroup.TRICEPS)
+                            focusLower.contains("back") -> group in listOf(MuscleGroup.BACK, MuscleGroup.BICEPS, MuscleGroup.LATS, MuscleGroup.TRAPS)
+                            focusLower.contains("shoulder") -> group in listOf(MuscleGroup.SHOULDERS, MuscleGroup.TRAPS)
                             else -> true
                         }
                     }

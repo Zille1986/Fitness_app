@@ -25,7 +25,7 @@ android {
         
         buildConfigField("String", "STRAVA_CLIENT_ID", "\"YOUR_STRAVA_CLIENT_ID\"")
         buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"YOUR_STRAVA_CLIENT_SECRET\"")
-        buildConfigField("String", "GEMINI_API_KEY", "\"AIzaSyCRtPLVgU3yGVcOTCpXDmWTp0ZiFXNc_BU\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"AIzaSyC1Ymp7_VQNq2wpyoVUZF6zuuvD1ZSh2Ww\"")
     }
 
     buildTypes {
