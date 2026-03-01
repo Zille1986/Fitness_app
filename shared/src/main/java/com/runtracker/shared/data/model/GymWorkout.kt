@@ -40,7 +40,8 @@ data class WorkoutExercise(
     val sets: List<WorkoutSet> = emptyList(),
     val notes: String? = null,
     val restSeconds: Int = 90,
-    val orderIndex: Int = 0
+    val orderIndex: Int = 0,
+    val videoFileName: String? = null  // Asset filename for demo video
 ) {
     val completedSets: Int get() = sets.count { it.isCompleted }
     val totalVolume: Double get() = sets.filter { it.isCompleted }.sumOf { it.weight * it.reps }

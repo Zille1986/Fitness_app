@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.AutoCenteringParams
@@ -23,6 +24,9 @@ fun CyclingHomeScreen(
     var selectedCycleType by remember { mutableStateOf<String?>(null) }
     var showWorkouts by remember { mutableStateOf(false) }
 
+    val config = LocalConfiguration.current
+    val horizontalPad = if (config.isScreenRound) 14.dp else 8.dp
+
     SwipeToDismissBox(
         state = swipeToDismissBoxState,
         onDismissed = {
@@ -35,7 +39,7 @@ fun CyclingHomeScreen(
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 autoCentering = AutoCenteringParams(itemIndex = 0),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 26.dp),
+                contentPadding = PaddingValues(horizontal = horizontalPad, vertical = 26.dp),
                 flingBehavior = ScalingLazyColumnDefaults.snapFlingBehavior(state = listState)
             ) {
                 if (!showWorkouts) {
@@ -62,7 +66,7 @@ fun CyclingHomeScreen(
                                         color = MaterialTheme.colors.onSurfaceVariant)
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             colors = ChipDefaults.primaryChipColors(backgroundColor = WearColors.Cycling)
                         )
                     }
@@ -78,7 +82,7 @@ fun CyclingHomeScreen(
                                         color = MaterialTheme.colors.onSurfaceVariant)
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             colors = ChipDefaults.secondaryChipColors()
                         )
                     }
@@ -94,7 +98,7 @@ fun CyclingHomeScreen(
                                         color = MaterialTheme.colors.onSurfaceVariant)
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             colors = ChipDefaults.secondaryChipColors()
                         )
                     }
@@ -116,7 +120,7 @@ fun CyclingHomeScreen(
                                         color = MaterialTheme.colors.onSurfaceVariant)
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             colors = ChipDefaults.chipColors(backgroundColor = WearColors.Cycling.copy(alpha = 0.3f))
                         )
                     }
@@ -132,7 +136,7 @@ fun CyclingHomeScreen(
                                         color = MaterialTheme.colors.onSurfaceVariant)
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             colors = ChipDefaults.chipColors(backgroundColor = WearColors.Cycling.copy(alpha = 0.3f))
                         )
                     }
@@ -158,7 +162,7 @@ fun CyclingHomeScreen(
                                             color = MaterialTheme.colors.onSurfaceVariant)
                                     }
                                 },
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 colors = ChipDefaults.secondaryChipColors()
                             )
                         }

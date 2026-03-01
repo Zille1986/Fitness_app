@@ -1,7 +1,7 @@
 package com.runtracker.app.di
 
 import com.runtracker.shared.data.db.BodyScanDao
-import com.runtracker.shared.data.db.RunTrackerDatabase
+import com.runtracker.shared.data.db.GoSteadyDatabase
 import com.runtracker.shared.data.repository.BodyAnalysisRepository
 import dagger.Module
 import dagger.Provides
@@ -15,7 +15,7 @@ object BodyModule {
 
     @Provides
     @Singleton
-    fun provideBodyScanDao(database: RunTrackerDatabase): BodyScanDao {
+    fun provideBodyScanDao(database: GoSteadyDatabase): BodyScanDao {
         return database.bodyScanDao()
     }
 

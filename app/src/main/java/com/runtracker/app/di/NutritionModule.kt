@@ -2,7 +2,7 @@ package com.runtracker.app.di
 
 import com.runtracker.shared.data.db.DailyNutritionDao
 import com.runtracker.shared.data.db.NutritionGoalsDao
-import com.runtracker.shared.data.db.RunTrackerDatabase
+import com.runtracker.shared.data.db.GoSteadyDatabase
 import com.runtracker.shared.data.repository.NutritionRepository
 import dagger.Module
 import dagger.Provides
@@ -16,13 +16,13 @@ object NutritionModule {
 
     @Provides
     @Singleton
-    fun provideDailyNutritionDao(database: RunTrackerDatabase): DailyNutritionDao {
+    fun provideDailyNutritionDao(database: GoSteadyDatabase): DailyNutritionDao {
         return database.dailyNutritionDao()
     }
 
     @Provides
     @Singleton
-    fun provideNutritionGoalsDao(database: RunTrackerDatabase): NutritionGoalsDao {
+    fun provideNutritionGoalsDao(database: GoSteadyDatabase): NutritionGoalsDao {
         return database.nutritionGoalsDao()
     }
 

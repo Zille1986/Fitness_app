@@ -32,7 +32,7 @@ import com.runtracker.shared.location.LocationTracker.Companion.calculateElevati
 import com.runtracker.shared.location.RunCalculator
 import com.runtracker.shared.sync.DataLayerPaths
 import com.runtracker.shared.util.CompressionUtils
-import com.runtracker.wear.WearRunTrackerApplication
+import com.runtracker.wear.WearGoSteadyApplication
 import com.google.android.gms.wearable.Asset
 import com.runtracker.wear.presentation.MainActivity
 import com.google.gson.Gson
@@ -59,7 +59,10 @@ class WearRunTrackingService : Service() {
     private val routePoints = mutableListOf<RoutePoint>()
     private var startTime: Long = 0
     private var timerJob: Job? = null
-    
+    private var swimPoolLengthMeters: Int = 25
+    private var totalPausedMillis: Long = 0
+    private var pauseStartTime: Long = 0
+
     // Interval tracking
     private var intervals: List<com.runtracker.shared.data.model.Interval> = emptyList()
     private var currentIntervalIndex = 0
@@ -149,6 +152,8 @@ class WearRunTrackingService : Service() {
         if (_trackingState.value.isTracking) return
 
         startTime = System.currentTimeMillis()
+        totalPausedMillis = 0
+        pauseStartTime = 0
         routePoints.clear()
 
         serviceScope.launch {
@@ -200,6 +205,9 @@ class WearRunTrackingService : Service() {
                 val targetHrZone = WorkoutHolder.pendingTargetHrZone
                 val workoutDuration = WorkoutHolder.pendingWorkoutDuration
                 
+                // Store pool length for distance calculation
+                swimPoolLengthMeters = pendingPoolLength
+
                 // Clear pending data atomically after capture
                 WorkoutHolder.clearAll()
 
@@ -294,6 +302,7 @@ class WearRunTrackingService : Service() {
             try {
                 exerciseClient.pauseExerciseAsync().await()
                 timerJob?.cancel()
+                pauseStartTime = System.currentTimeMillis()
                 _trackingState.value = _trackingState.value.copy(isPaused = true)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -307,6 +316,7 @@ class WearRunTrackingService : Service() {
         serviceScope.launch {
             try {
                 exerciseClient.resumeExerciseAsync().await()
+                totalPausedMillis += System.currentTimeMillis() - pauseStartTime
                 startTimer()
                 _trackingState.value = _trackingState.value.copy(isPaused = false)
             } catch (e: Exception) {
@@ -320,12 +330,17 @@ class WearRunTrackingService : Service() {
 
         // Cancel timer immediately
         timerJob?.cancel()
-        
+
+        // If stopped while paused, account for the current pause
+        if (_trackingState.value.isPaused && pauseStartTime > 0) {
+            totalPausedMillis += System.currentTimeMillis() - pauseStartTime
+        }
+
         // Capture state before resetting
         val state = _trackingState.value
         val activityType = state.activityType
         val endTime = System.currentTimeMillis()
-        val duration = state.durationMillis
+        val duration = endTime - startTime - totalPausedMillis
         val distance = state.distanceMeters
         val capturedRoutePoints = routePoints.toList()
 
@@ -346,13 +361,19 @@ class WearRunTrackingService : Service() {
                     "SWIMMING" -> {
                         val pacePerHundred = if (distance > 0) (duration / 1000.0) / (distance / 100.0) else 0.0
                         val calories = RunCalculator.calculateCalories(distance, duration, null, state.heartRate)
-                        val laps = (distance / 25).toInt() // Approximate based on 25m pool
-                        
+                        val poolLen = swimPoolLengthMeters.coerceAtLeast(1)
+                        val laps = (distance / poolLen).toInt()
+                        val resolvedPoolLength = when (swimPoolLengthMeters) {
+                            50 -> PoolLength.LONG_COURSE_METERS
+                            23 -> PoolLength.SHORT_COURSE_YARDS
+                            else -> PoolLength.SHORT_COURSE_METERS
+                        }
+
                         val completedSwim = SwimmingWorkout(
                             startTime = startTime,
                             endTime = endTime,
                             swimType = SwimType.POOL,
-                            poolLength = PoolLength.SHORT_COURSE_METERS,
+                            poolLength = resolvedPoolLength,
                             distanceMeters = distance,
                             durationMillis = duration,
                             laps = laps,
@@ -460,9 +481,13 @@ class WearRunTrackingService : Service() {
             
             // Get distance (cumulative)
             val distanceData: CumulativeDataPoint<Double>? = latestMetrics.getData(DataType.DISTANCE_TOTAL)
-            if (distanceData != null) {
+            if (distanceData != null && distanceData.total > 0) {
                 distance = distanceData.total
             }
+
+            // For pool swimming, Health Services calculates DISTANCE_TOTAL using the
+            // pool length set via setSwimmingPoolLengthMeters() and accelerometer-based
+            // stroke/turn detection — no need for separate SWIM_LAP_COUNT handling.
             
             // Get speed for pace calculation
             val speedData = latestMetrics.getData(DataType.SPEED)
@@ -533,7 +558,7 @@ class WearRunTrackingService : Service() {
             while (isActive) {
                 delay(1000)
                 if (!_trackingState.value.isPaused) {
-                    val duration = System.currentTimeMillis() - startTime
+                    val duration = System.currentTimeMillis() - startTime - totalPausedMillis
                     updateCounter++
                     
                     // Update interval tracking if this is an interval workout
@@ -666,7 +691,7 @@ class WearRunTrackingService : Service() {
         val state = _trackingState.value
         val distanceKm = state.distanceMeters / 1000.0
 
-        return NotificationCompat.Builder(this, WearRunTrackerApplication.TRACKING_CHANNEL_ID)
+        return NotificationCompat.Builder(this, WearGoSteadyApplication.TRACKING_CHANNEL_ID)
             .setContentTitle("Running")
             .setContentText("%.2f km".format(distanceKm))
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)

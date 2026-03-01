@@ -9,7 +9,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.runtracker.app.MainActivity
 import com.runtracker.app.R
-import com.runtracker.app.RunTrackerApplication
+import com.runtracker.app.GoSteadyApplication
 import com.runtracker.shared.data.model.RoutePoint
 import com.runtracker.shared.data.model.Run
 import com.runtracker.shared.data.model.RunSource
@@ -148,99 +148,98 @@ class RunTrackingService : Service() {
         locationJob?.cancel()
         timerJob?.cancel()
 
-        android.util.Log.d("RunTrackingService", "stopTracking called, currentRunId: $currentRunId")
+        val capturedRoutePoints = routePoints.toList()
+        val capturedRunId = currentRunId
+        val capturedStartTime = startTime
+        val capturedPausedDuration = pausedDuration
 
-        serviceScope.launch {
-            // Wait briefly if currentRunId hasn't been set yet (race condition fix)
-            var attempts = 0
-            while (currentRunId == null && attempts < 10) {
-                android.util.Log.d("RunTrackingService", "Waiting for currentRunId... attempt $attempts")
-                kotlinx.coroutines.delay(100)
-                attempts++
-            }
-            
-            currentRunId?.let { runId ->
-                val endTime = System.currentTimeMillis()
-                val duration = endTime - startTime - pausedDuration
-                val distance = calculateDistance(routePoints)
-                val pace = RunCalculator.calculatePace(distance, duration)
-                val splits = RunCalculator.calculateSplits(routePoints)
-                val elevationGain = calculateElevationGain(routePoints)
-                val elevationLoss = calculateElevationLoss(routePoints)
-                val avgHeartRate = RunCalculator.calculateAverageHeartRate(routePoints)
-                val maxHeartRate = RunCalculator.calculateMaxHeartRate(routePoints)
-                val calories = RunCalculator.calculateCalories(distance, duration, null, avgHeartRate)
-
-                val completedRun = Run(
-                    id = runId,
-                    startTime = startTime,
-                    endTime = endTime,
-                    distanceMeters = distance,
-                    durationMillis = duration,
-                    avgPaceSecondsPerKm = pace,
-                    avgHeartRate = avgHeartRate,
-                    maxHeartRate = maxHeartRate,
-                    caloriesBurned = calories,
-                    elevationGainMeters = elevationGain,
-                    elevationLossMeters = elevationLoss,
-                    routePoints = routePoints.toList(),
-                    splits = splits,
-                    source = RunSource.PHONE,
-                    isCompleted = true
-                )
-                android.util.Log.d("RunTrackingService", "Saving completed run: id=$runId, distance=${distance}m, duration=${duration}ms, routePoints=${routePoints.size}")
-                runRepository.updateRun(completedRun)
-                android.util.Log.d("RunTrackingService", "Run saved successfully to database")
-                
-                // Check for personal bests
-                try {
-                    val pbUpdates = personalBestRepository.checkAndUpdatePersonalBests(completedRun)
-                    if (pbUpdates.isNotEmpty()) {
-                        android.util.Log.d("RunTrackingService", "New PBs: ${pbUpdates.map { it.distanceName }}")
-                        // Award XP for each PB
-                        pbUpdates.forEach { _ ->
-                            gamificationRepository.recordPersonalBest(completedRun.id)
-                        }
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-                
-                // Record workout for gamification (XP, streaks, achievements)
-                try {
-                    val durationMinutes = (completedRun.durationMillis / 60000).toInt()
-                    gamificationRepository.recordWorkoutCompleted(
-                        distanceMeters = completedRun.distanceMeters,
-                        durationMinutes = durationMinutes,
-                        runId = completedRun.id
-                    )
-                    android.util.Log.d("RunTrackingService", "Gamification updated for run ${completedRun.id}")
-                } catch (e: Exception) {
-                    android.util.Log.e("RunTrackingService", "Error updating gamification", e)
-                }
-                
-                // Auto-upload to Strava if connected
-                android.util.Log.d("RunTrackingService", "Strava connected: ${stravaService.isConnected}")
-                if (stravaService.isConnected) {
-                    try {
-                        android.util.Log.d("RunTrackingService", "Uploading to Strava...")
-                        stravaService.uploadRun(completedRun)
-                        android.util.Log.d("RunTrackingService", "Strava upload complete")
-                    } catch (e: Exception) {
-                        android.util.Log.e("RunTrackingService", "Strava upload failed", e)
-                    }
-                }
-            } ?: run {
-                android.util.Log.e("RunTrackingService", "ERROR: currentRunId is null, run was not saved!")
-            }
-        }
-
+        // Reset UI state immediately
         _trackingState.value = TrackingState()
         currentRunId = null
         routePoints.clear()
 
+        // Remove the ongoing notification right away
         stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+
+        serviceScope.launch {
+            try {
+                if (capturedRunId != null) {
+                    val endTime = System.currentTimeMillis()
+                    val duration = endTime - capturedStartTime - capturedPausedDuration
+                    val distance = calculateDistance(capturedRoutePoints)
+                    val pace = RunCalculator.calculatePace(distance, duration)
+                    val splits = RunCalculator.calculateSplits(capturedRoutePoints)
+                    val elevationGain = calculateElevationGain(capturedRoutePoints)
+                    val elevationLoss = calculateElevationLoss(capturedRoutePoints)
+                    val avgHeartRate = RunCalculator.calculateAverageHeartRate(capturedRoutePoints)
+                    val maxHeartRate = RunCalculator.calculateMaxHeartRate(capturedRoutePoints)
+                    val calories = RunCalculator.calculateCalories(distance, duration, null, avgHeartRate)
+
+                    val completedRun = Run(
+                        id = capturedRunId,
+                        startTime = capturedStartTime,
+                        endTime = endTime,
+                        distanceMeters = distance,
+                        durationMillis = duration,
+                        avgPaceSecondsPerKm = pace,
+                        avgHeartRate = avgHeartRate,
+                        maxHeartRate = maxHeartRate,
+                        caloriesBurned = calories,
+                        elevationGainMeters = elevationGain,
+                        elevationLossMeters = elevationLoss,
+                        routePoints = capturedRoutePoints,
+                        splits = splits,
+                        source = RunSource.PHONE,
+                        isCompleted = true
+                    )
+                    runRepository.updateRun(completedRun)
+                    android.util.Log.d("RunTrackingService", "Run saved: id=$capturedRunId, distance=${distance}m")
+
+                    // Check for personal bests
+                    try {
+                        val pbUpdates = personalBestRepository.checkAndUpdatePersonalBests(completedRun)
+                        if (pbUpdates.isNotEmpty()) {
+                            pbUpdates.forEach { _ ->
+                                gamificationRepository.recordPersonalBest(completedRun.id)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("RunTrackingService", "Error checking PBs", e)
+                    }
+
+                    // Record workout for gamification
+                    try {
+                        val durationMinutes = (completedRun.durationMillis / 60000).toInt()
+                        gamificationRepository.recordWorkoutCompleted(
+                            distanceMeters = completedRun.distanceMeters,
+                            durationMinutes = durationMinutes,
+                            runId = completedRun.id
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.e("RunTrackingService", "Error updating gamification", e)
+                    }
+
+                    // Auto-upload to Strava — let uploadRun() handle auth internally
+                    try {
+                        val result = stravaService.uploadRun(completedRun)
+                        result.fold(
+                            onSuccess = { stravaId ->
+                                android.util.Log.d("RunTrackingService", "Strava upload complete, id: $stravaId")
+                            },
+                            onFailure = { error ->
+                                android.util.Log.e("RunTrackingService", "Strava upload failed: ${error.message}", error)
+                            }
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.e("RunTrackingService", "Unexpected error during Strava upload", e)
+                    }
+                } else {
+                    android.util.Log.e("RunTrackingService", "currentRunId is null, run was not saved")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("RunTrackingService", "Error saving run", e)
+            }
+        }
     }
 
     private fun startLocationUpdates() {
@@ -293,7 +292,7 @@ class RunTrackingService : Service() {
         val distanceKm = state.distanceMeters / 1000.0
         val paceFormatted = Run.formatPace(state.currentPaceSecondsPerKm)
 
-        return NotificationCompat.Builder(this, RunTrackerApplication.TRACKING_CHANNEL_ID)
+        return NotificationCompat.Builder(this, GoSteadyApplication.TRACKING_CHANNEL_ID)
             .setContentTitle(getString(R.string.notification_tracking_title))
             .setContentText("%.2f km • %s /km".format(distanceKm, paceFormatted))
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)

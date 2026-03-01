@@ -108,6 +108,14 @@ fun GymDashboardScreen(
                     }
                 }
 
+                // Muscle Heatmap
+                item {
+                    MuscleGroupHeatmap(
+                        muscleGroupVolume = uiState.muscleGroupVolume,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+
                 // Quick Actions
                 item {
                     SectionHeader(

@@ -84,14 +84,15 @@ data class SwimmingDashboardUiState(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SwimmingDashboardScreen(
-    onStartWorkout: (SwimType) -> Unit = {},
+    onStartWorkout: (SwimType, PoolLength?) -> Unit = { _, _ -> },
     onViewHistory: () -> Unit = {},
     onViewPlans: () -> Unit = {},
     viewModel: SwimmingDashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showSwimTypeDialog by remember { mutableStateOf(false) }
-    
+    var showPoolLengthDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -219,7 +220,22 @@ fun SwimmingDashboardScreen(
             onDismiss = { showSwimTypeDialog = false },
             onSelectType = { swimType ->
                 showSwimTypeDialog = false
-                onStartWorkout(swimType)
+                if (swimType == SwimType.POOL) {
+                    showPoolLengthDialog = true
+                } else {
+                    onStartWorkout(swimType, null)
+                }
+            }
+        )
+    }
+
+    // Pool Length Selection Dialog
+    if (showPoolLengthDialog) {
+        PoolLengthSelectionDialog(
+            onDismiss = { showPoolLengthDialog = false },
+            onSelectLength = { poolLength ->
+                showPoolLengthDialog = false
+                onStartWorkout(SwimType.POOL, poolLength)
             }
         )
     }
@@ -460,6 +476,56 @@ private fun SwimTypeSelectionDialog(
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = swimType.displayName,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+private fun PoolLengthSelectionDialog(
+    onDismiss: () -> Unit,
+    onSelectLength: (PoolLength) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pool Length") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    PoolLength.SHORT_COURSE_METERS,
+                    PoolLength.LONG_COURSE_METERS,
+                    PoolLength.SHORT_COURSE_YARDS
+                ).forEach { poolLength ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelectLength(poolLength) }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Pool,
+                                contentDescription = null,
+                                tint = Color(0xFF0288D1)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = poolLength.displayName,
                                 style = MaterialTheme.typography.bodyLarge
                             )
                         }

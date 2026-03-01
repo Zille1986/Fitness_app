@@ -18,7 +18,7 @@ class GeminiBodyAnalyzer @Inject constructor() {
 
     private val generativeModel by lazy {
         GenerativeModel(
-            modelName = "gemini-2.0-flash",
+            modelName = "gemini-2.5-flash",
             apiKey = BuildConfig.GEMINI_API_KEY,
             generationConfig = generationConfig {
                 temperature = 0.3f

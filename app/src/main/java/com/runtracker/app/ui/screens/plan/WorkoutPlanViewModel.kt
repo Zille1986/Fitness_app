@@ -123,7 +123,7 @@ class WorkoutPlanViewModel @Inject constructor(
                 val prompt = buildAnalysisPrompt(state)
                 
                 val generativeModel = GenerativeModel(
-                    modelName = "gemini-pro",
+                    modelName = "gemini-2.5-flash",
                     apiKey = getGeminiApiKey(),
                     generationConfig = generationConfig {
                         temperature = 0.7f

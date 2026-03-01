@@ -1,6 +1,6 @@
 package com.runtracker.app.di
 
-import com.runtracker.shared.data.db.RunTrackerDatabase
+import com.runtracker.shared.data.db.GoSteadyDatabase
 import com.runtracker.shared.data.db.SwimmingTrainingPlanDao
 import com.runtracker.shared.data.db.SwimmingWorkoutDao
 import com.runtracker.shared.data.repository.SwimmingRepository
@@ -16,13 +16,13 @@ object SwimmingModule {
 
     @Provides
     @Singleton
-    fun provideSwimmingWorkoutDao(database: RunTrackerDatabase): SwimmingWorkoutDao {
+    fun provideSwimmingWorkoutDao(database: GoSteadyDatabase): SwimmingWorkoutDao {
         return database.swimmingWorkoutDao()
     }
 
     @Provides
     @Singleton
-    fun provideSwimmingTrainingPlanDao(database: RunTrackerDatabase): SwimmingTrainingPlanDao {
+    fun provideSwimmingTrainingPlanDao(database: GoSteadyDatabase): SwimmingTrainingPlanDao {
         return database.swimmingTrainingPlanDao()
     }
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">RunTracker</string>
+    <string name="app_name">GoSteady</string>
     
     <!-- Running -->
     <string name="start_run">Start Run</string>

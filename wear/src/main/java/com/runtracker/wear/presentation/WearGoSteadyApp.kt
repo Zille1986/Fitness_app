@@ -13,7 +13,7 @@ typealias SwimWorkoutTypeWatch = com.runtracker.wear.presentation.screens.SwimWo
 typealias CycleWorkoutTypeWatch = com.runtracker.wear.presentation.screens.CycleWorkoutTypeWatch
 
 @Composable
-fun WearRunTrackerApp(
+fun WearGoSteadyApp(
     trackingState: WearTrackingState,
     isAmbient: Boolean = false,
     pendingWorkout: com.runtracker.shared.data.model.ScheduledWorkout? = null,
@@ -26,7 +26,8 @@ fun WearRunTrackerApp(
     onPauseRun: () -> Unit,
     onResumeRun: () -> Unit,
     onStopRun: () -> Unit,
-    onClearPendingWorkout: () -> Unit
+    onClearPendingWorkout: () -> Unit,
+    onHIITComplete: (String) -> Unit = {} // JSON session data to sync to phone
 ) {
     val navController = rememberSwipeDismissableNavController()
 
@@ -63,6 +64,7 @@ fun WearRunTrackerApp(
                 onSelectRunning = { navController.navigate("home") },
                 onSelectSwimming = { navController.navigate("swimming_home") },
                 onSelectCycling = { navController.navigate("cycling_home") },
+                onSelectHIIT = { navController.navigate("hiit_home") },
                 hasPendingWorkout = pendingWorkout != null,
                 onViewPendingWorkout = { navController.navigate("workout_preview") },
                 onMusicControl = { navController.navigate("music_control") }
@@ -157,6 +159,31 @@ fun WearRunTrackerApp(
                 onPause = onPauseRun,
                 onResume = onResumeRun,
                 onStop = onStopRun
+            )
+        }
+
+        composable("hiit_home") {
+            HIITHomeScreen(
+                onStartHIIT = { templateId ->
+                    navController.navigate("hiit_tracking/$templateId")
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("hiit_tracking/{templateId}") { backStackEntry ->
+            val templateId = backStackEntry.arguments?.getString("templateId") ?: ""
+            WearHIITTrackingScreen(
+                templateId = templateId,
+                onComplete = { sessionJson ->
+                    onHIITComplete(sessionJson)
+                    navController.navigate("activity_select") {
+                        popUpTo("activity_select") { inclusive = true }
+                    }
+                },
+                onBack = {
+                    navController.popBackStack()
+                }
             )
         }
 

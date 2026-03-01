@@ -22,7 +22,7 @@ private val WearColors = Colors(
 )
 
 @Composable
-fun WearRunTrackerTheme(
+fun WearGoSteadyTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(

@@ -1,6 +1,6 @@
 package com.runtracker.app.di
 
-import com.runtracker.shared.data.db.RunTrackerDatabase
+import com.runtracker.shared.data.db.GoSteadyDatabase
 import com.runtracker.shared.data.db.SafetyDao
 import com.runtracker.shared.data.repository.SafetyRepository
 import dagger.Module
@@ -15,7 +15,7 @@ object SafetyModule {
 
     @Provides
     @Singleton
-    fun provideSafetyDao(database: RunTrackerDatabase): SafetyDao {
+    fun provideSafetyDao(database: GoSteadyDatabase): SafetyDao {
         return database.safetyDao()
     }
 

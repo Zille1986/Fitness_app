@@ -37,7 +37,7 @@ class CreateTemplateViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val generativeModel = GenerativeModel(
-        modelName = "gemini-2.0-flash",
+        modelName = "gemini-2.5-flash",
         apiKey = BuildConfig.GEMINI_API_KEY,
         generationConfig = generationConfig {
             temperature = 0.7f
@@ -248,11 +248,13 @@ class CreateTemplateViewModel @Inject constructor(
                 parseAndApplyGeneratedTemplate(responseText, availableExercises)
                 
             } catch (e: Exception) {
-                _uiState.update { 
+                android.util.Log.e("CreateTemplate", "AI generation failed", e)
+                _uiState.update {
                     it.copy(
-                        isGenerating = false, 
+                        isGenerating = false,
+                        showAIDialog = false,
                         generationError = "Generation failed: ${e.message}"
-                    ) 
+                    )
                 }
             }
         }

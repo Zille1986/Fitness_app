@@ -14,25 +14,25 @@ object GymModule {
 
     @Provides
     @Singleton
-    fun provideExerciseDao(database: RunTrackerDatabase): ExerciseDao {
+    fun provideExerciseDao(database: GoSteadyDatabase): ExerciseDao {
         return database.exerciseDao()
     }
 
     @Provides
     @Singleton
-    fun provideGymWorkoutDao(database: RunTrackerDatabase): GymWorkoutDao {
+    fun provideGymWorkoutDao(database: GoSteadyDatabase): GymWorkoutDao {
         return database.gymWorkoutDao()
     }
 
     @Provides
     @Singleton
-    fun provideWorkoutTemplateDao(database: RunTrackerDatabase): WorkoutTemplateDao {
+    fun provideWorkoutTemplateDao(database: GoSteadyDatabase): WorkoutTemplateDao {
         return database.workoutTemplateDao()
     }
 
     @Provides
     @Singleton
-    fun provideExerciseHistoryDao(database: RunTrackerDatabase): ExerciseHistoryDao {
+    fun provideExerciseHistoryDao(database: GoSteadyDatabase): ExerciseHistoryDao {
         return database.exerciseHistoryDao()
     }
 
@@ -49,13 +49,13 @@ object GymModule {
 
     @Provides
     @Singleton
-    fun provideWorkoutPlanDao(database: RunTrackerDatabase): WorkoutPlanDao {
+    fun provideWorkoutPlanDao(database: GoSteadyDatabase): WorkoutPlanDao {
         return database.workoutPlanDao()
     }
 
     @Provides
     @Singleton
-    fun provideScheduledGymWorkoutDao(database: RunTrackerDatabase): ScheduledGymWorkoutDao {
+    fun provideScheduledGymWorkoutDao(database: GoSteadyDatabase): ScheduledGymWorkoutDao {
         return database.scheduledGymWorkoutDao()
     }
 }

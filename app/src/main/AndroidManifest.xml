@@ -38,18 +38,18 @@
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
 
     <application
-        android:name=".RunTrackerApplication"
+        android:name=".GoSteadyApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.RunTracker">
+        android:theme="@style/Theme.GoSteady">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.RunTracker">
+            android:theme="@style/Theme.GoSteady">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -124,7 +124,7 @@
             android:exported="false"
             android:showOnLockScreen="true"
             android:turnScreenOn="true"
-            android:theme="@style/Theme.RunTracker" />
+            android:theme="@style/Theme.GoSteady" />
         
         <!-- Safety Broadcast Receiver -->
         <receiver

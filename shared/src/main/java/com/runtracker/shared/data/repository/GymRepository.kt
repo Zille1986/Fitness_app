@@ -99,6 +99,9 @@ class GymRepository(
     suspend fun getBestWeight(exerciseId: Long): ExerciseHistory? =
         exerciseHistoryDao.getBestWeightForExercise(exerciseId)
     
+    suspend fun getHistorySince(exerciseId: Long, startTime: Long): List<ExerciseHistory> =
+        exerciseHistoryDao.getHistorySince(exerciseId, startTime)
+
     fun getPersonalRecords(): Flow<List<ExerciseHistory>> = exerciseHistoryDao.getPersonalRecordsFlow()
     
     suspend fun getPersonalRecordsSnapshot(): List<ExerciseHistory> = exerciseHistoryDao.getPersonalRecords()
@@ -151,6 +154,39 @@ class GymRepository(
         val estimatedOneRepMax: Double
     )
 
+    /**
+     * Recalculates exercise history stats after a workout set is edited.
+     * Updates bestWeight, bestReps, totalVolume, estimatedOneRepMax, and PR flag.
+     */
+    suspend fun recalculateExerciseHistory(workoutId: Long, exerciseId: Long, sets: List<WorkoutSet>) {
+        val existing = exerciseHistoryDao.getHistoryForWorkoutExercise(workoutId, exerciseId) ?: return
+        val completedSets = sets.filter { it.isCompleted }
+        if (completedSets.isEmpty()) return
+
+        val bestSet = completedSets.maxByOrNull { it.weight * it.reps } ?: return
+        val totalVolume = completedSets.sumOf { it.weight * it.reps }
+        val totalReps = completedSets.sumOf { it.reps }
+        val estimatedOneRepMax = OneRepMaxCalculator.calculate(bestSet.weight, bestSet.reps)
+
+        // Check if this is still a PR - look at all OTHER history entries for this exercise
+        val allHistory = exerciseHistoryDao.getRecentHistoryForExercise(exerciseId, 1000)
+        val bestOtherOneRepMax = allHistory
+            .filter { it.id != existing.id }
+            .maxOfOrNull { it.estimatedOneRepMax } ?: 0.0
+        val isPersonalRecord = estimatedOneRepMax > bestOtherOneRepMax
+
+        val updated = existing.copy(
+            bestWeight = bestSet.weight,
+            bestReps = bestSet.reps,
+            totalVolume = totalVolume,
+            totalSets = completedSets.size,
+            totalReps = totalReps,
+            estimatedOneRepMax = estimatedOneRepMax,
+            isPersonalRecord = isPersonalRecord
+        )
+        exerciseHistoryDao.updateHistory(updated)
+    }
+
     // Progression suggestions
     suspend fun getProgressionSuggestion(
         exerciseId: Long,
@@ -164,6 +200,42 @@ class GymRepository(
             recentHistory = recentHistory,
             targetReps = targetReps
         )
+    }
+
+    // Weekly muscle group volume
+    suspend fun getWeeklyMuscleGroupVolume(): Map<MuscleGroup, Int> {
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val weekStart = calendar.timeInMillis
+        val weekEnd = weekStart + 7 * 24 * 60 * 60 * 1000L
+
+        val workouts = gymWorkoutDao.getCompletedWorkoutsInRange(weekStart, weekEnd)
+        val volumeMap = mutableMapOf<MuscleGroup, Int>()
+
+        for (workout in workouts) {
+            for (exercise in workout.exercises) {
+                val completedSets = exercise.sets.count { it.isCompleted }
+                if (completedSets > 0) {
+                    val ex = exerciseDao.getExerciseById(exercise.exerciseId)
+                    if (ex != null) {
+                        // Primary muscle group
+                        volumeMap[ex.muscleGroup] = (volumeMap[ex.muscleGroup] ?: 0) + completedSets
+                        // Secondary muscle groups (half credit)
+                        for (secondary in ex.secondaryMuscleGroups) {
+                            val halfSets = (completedSets + 1) / 2
+                            volumeMap[secondary] = (volumeMap[secondary] ?: 0) + halfSets
+                        }
+                    }
+                }
+            }
+        }
+
+        return volumeMap
     }
 
     // Weekly stats

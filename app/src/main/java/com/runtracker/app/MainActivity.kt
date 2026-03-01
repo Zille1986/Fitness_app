@@ -23,9 +23,9 @@ import com.runtracker.app.assistant.AssistantViewModel
 import com.runtracker.app.assistant.MinimizedAssistantButton
 import com.runtracker.app.notifications.AppNotificationManager
 import com.runtracker.app.strava.StravaService
-import com.runtracker.app.ui.navigation.RunTrackerNavGraph
+import com.runtracker.app.ui.navigation.GoSteadyNavGraph
 import com.runtracker.app.ui.navigation.Screen
-import com.runtracker.app.ui.theme.RunTrackerTheme
+import com.runtracker.app.ui.theme.GoSteadyTheme
 import com.runtracker.shared.data.repository.UserRepository
 import com.runtracker.app.widget.WidgetDataUpdater
 import dagger.hilt.android.AndroidEntryPoint
@@ -83,7 +83,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            RunTrackerTheme {
+            GoSteadyTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
                         
                         Box(modifier = Modifier.fillMaxSize()) {
                             // Main app content
-                            RunTrackerNavGraph(
+                            GoSteadyNavGraph(
                                 navController = navController,
                                 startDestination = destination
                             )

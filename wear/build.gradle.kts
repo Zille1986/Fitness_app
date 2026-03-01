@@ -72,6 +72,16 @@ android {
     }
 }
 
+// Force kotlin-stdlib to match our Kotlin compiler version (1.9.20)
+// Prevents transitive dependencies from pulling in incompatible 2.x stdlib
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:1.9.20")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.20")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.20")
+    }
+}
+
 dependencies {
     implementation(project(":shared"))
 
@@ -95,8 +105,8 @@ dependencies {
     // This allows the watch to pre-compile critical code paths for faster startup & scroll
     implementation("androidx.profileinstaller:profileinstaller:1.3.1")
 
-    // Health Services
-    implementation("androidx.health:health-services-client:1.0.0-beta03")
+    // Health Services (1.1.0-alpha04 — last version before Kotlin 2.x requirement)
+    implementation("androidx.health:health-services-client:1.1.0-alpha04")
 
     // Ongoing Activity
     implementation("androidx.wear:wear-ongoing:1.0.0")

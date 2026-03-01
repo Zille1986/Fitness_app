@@ -5,7 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.AutoCenteringParams
@@ -21,9 +23,12 @@ fun ActivitySelectScreen(
     onSelectCycling: () -> Unit,
     hasPendingWorkout: Boolean,
     onViewPendingWorkout: () -> Unit,
+    onSelectHIIT: () -> Unit = {},
     onMusicControl: () -> Unit = {}
 ) {
     val listState = rememberScalingLazyListState()
+    val config = LocalConfiguration.current
+    val horizontalPad = if (config.isScreenRound) 14.dp else 8.dp
 
     Scaffold(
         timeText = { TimeText() },
@@ -34,7 +39,7 @@ fun ActivitySelectScreen(
             state = listState,
             horizontalAlignment = Alignment.CenterHorizontally,
             autoCentering = AutoCenteringParams(itemIndex = 0),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 26.dp),
+            contentPadding = PaddingValues(horizontal = horizontalPad, vertical = 26.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
             flingBehavior = ScalingLazyColumnDefaults.snapFlingBehavior(state = listState)
         ) {
@@ -67,7 +72,7 @@ fun ActivitySelectScreen(
                                 )
                             }
                         },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         colors = ChipDefaults.primaryChipColors(
                             backgroundColor = WearColors.Success
                         )
@@ -112,6 +117,19 @@ fun ActivitySelectScreen(
                 )
             }
 
+            // HIIT
+            item {
+                ActivityChip(
+                    emoji = "\uD83D\uDD25",
+                    title = "HIIT",
+                    subtitle = "Interval training",
+                    onClick = onSelectHIIT,
+                    colors = ChipDefaults.chipColors(
+                        backgroundColor = WearColors.HIIT.copy(alpha = 0.3f)
+                    )
+                )
+            }
+
             // Music Controls
             item {
                 ActivityChip(
@@ -136,6 +154,10 @@ private fun ActivityChip(
     onClick: () -> Unit,
     colors: ChipColors
 ) {
+    val config = LocalConfiguration.current
+    val screenDp = minOf(config.screenWidthDp, config.screenHeightDp)
+    val emojiSize = (screenDp * 0.12f).coerceIn(20f, 28f).sp
+
     Chip(
         onClick = onClick,
         label = {
@@ -143,7 +165,7 @@ private fun ActivityChip(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(text = emoji, fontSize = 24.sp)
+                Text(text = emoji, fontSize = emojiSize)
                 Column {
                     Text(
                         text = title,
@@ -158,7 +180,7 @@ private fun ActivityChip(
                 }
             }
         },
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = colors
     )
 }

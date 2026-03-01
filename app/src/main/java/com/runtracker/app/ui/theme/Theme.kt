@@ -70,7 +70,7 @@ private val AppShapes = Shapes(
 )
 
 @Composable
-fun RunTrackerTheme(
+fun GoSteadyTheme(
     darkTheme: Boolean = true,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit

@@ -28,8 +28,12 @@ import com.runtracker.app.ui.screens.swimming.ActiveSwimWorkoutScreen
 import com.runtracker.app.ui.screens.swimming.CreateSwimmingPlanScreen
 import com.runtracker.app.ui.screens.cycling.ActiveCyclingWorkoutScreen
 import com.runtracker.app.ui.screens.cycling.CreateCyclingPlanScreen
+import com.runtracker.app.ui.screens.hiit.HIITDashboardScreen
+import com.runtracker.app.ui.screens.hiit.ActiveHIITWorkoutScreen
+import com.runtracker.app.ui.screens.hiit.HIITSummaryScreen
 import com.runtracker.app.ui.screens.SafetyScreenWrapper
 import com.runtracker.shared.data.model.SwimType
+import com.runtracker.shared.data.model.PoolLength
 import com.runtracker.shared.data.model.CyclingType
 
 sealed class Screen(val route: String) {
@@ -111,8 +115,14 @@ sealed class Screen(val route: String) {
     object WorkoutPlan : Screen("workout_plan")
     
     // Swimming screens
-    object ActiveSwimWorkout : Screen("active_swim_workout/{swimType}") {
-        fun createRoute(swimType: String) = "active_swim_workout/$swimType"
+    object ActiveSwimWorkout : Screen("active_swim_workout/{swimType}?poolLength={poolLength}") {
+        fun createRoute(swimType: String, poolLength: String? = null): String {
+            return if (poolLength != null) {
+                "active_swim_workout/$swimType?poolLength=$poolLength"
+            } else {
+                "active_swim_workout/$swimType"
+            }
+        }
     }
     object SwimmingPlans : Screen("swimming_plans")
     object CreateSwimmingPlan : Screen("create_swimming_plan")
@@ -124,6 +134,15 @@ sealed class Screen(val route: String) {
     object CyclingPlans : Screen("cycling_plans")
     object CreateCyclingPlan : Screen("create_cycling_plan")
     
+    // HIIT screens
+    object HIITDashboard : Screen("hiit_dashboard")
+    object ActiveHIITWorkout : Screen("hiit_active/{templateId}") {
+        fun createRoute(templateId: String) = "hiit_active/$templateId"
+    }
+    object HIITSummary : Screen("hiit_summary/{sessionId}") {
+        fun createRoute(sessionId: Long) = "hiit_summary/$sessionId"
+    }
+
     // Safety
     object Safety : Screen("safety")
     
@@ -138,7 +157,7 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun RunTrackerNavGraph(
+fun GoSteadyNavGraph(
     navController: NavHostController,
     startDestination: String = Screen.Main.route
 ) {
@@ -542,13 +561,25 @@ fun RunTrackerNavGraph(
         // Swimming screens
         composable(
             route = Screen.ActiveSwimWorkout.route,
-            arguments = listOf(navArgument("swimType") { type = NavType.StringType })
+            arguments = listOf(
+                navArgument("swimType") { type = NavType.StringType },
+                navArgument("poolLength") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
         ) { backStackEntry ->
             val swimTypeStr = backStackEntry.arguments?.getString("swimType") ?: "POOL"
             val swimType = try { SwimType.valueOf(swimTypeStr) } catch (e: Exception) { SwimType.POOL }
-            
+            val poolLengthStr = backStackEntry.arguments?.getString("poolLength")
+            val poolLength = poolLengthStr?.let {
+                try { PoolLength.valueOf(it) } catch (e: Exception) { PoolLength.SHORT_COURSE_METERS }
+            }
+
             ActiveSwimWorkoutScreen(
                 swimType = swimType,
+                poolLength = poolLength,
                 onFinish = { workoutId ->
                     navController.popBackStack()
                 },
@@ -588,7 +619,44 @@ fun RunTrackerNavGraph(
                 onPlanCreated = { navController.popBackStack() }
             )
         }
-        
+
+        // HIIT screens
+        composable(Screen.HIITDashboard.route) {
+            HIITDashboardScreen(
+                onStartWorkout = { templateId ->
+                    navController.navigate(Screen.ActiveHIITWorkout.createRoute(templateId))
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.ActiveHIITWorkout.route,
+            arguments = listOf(navArgument("templateId") { type = NavType.StringType })
+        ) {
+            ActiveHIITWorkoutScreen(
+                onComplete = { sessionId ->
+                    navController.navigate(Screen.HIITSummary.createRoute(sessionId)) {
+                        popUpTo(Screen.HIITDashboard.route)
+                    }
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.HIITSummary.route,
+            arguments = listOf(navArgument("sessionId") { type = NavType.LongType })
+        ) {
+            HIITSummaryScreen(
+                onDone = {
+                    navController.navigate(Screen.HIITDashboard.route) {
+                        popUpTo(Screen.HIITDashboard.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
         // Safety
         composable(Screen.Safety.route) {
             SafetyScreenWrapper(

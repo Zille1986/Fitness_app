@@ -25,7 +25,7 @@ android {
         
         buildConfigField("String", "STRAVA_CLIENT_ID", "\"YOUR_STRAVA_CLIENT_ID\"")
         buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"YOUR_STRAVA_CLIENT_SECRET\"")
-        buildConfigField("String", "GEMINI_API_KEY", "\"AIzaSyCE6GDKkC0FLz5DpktCEPBOIsWDzLk2X3s\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"AIzaSyCRtPLVgU3yGVcOTCpXDmWTp0ZiFXNc_BU\"")
     }
 
     buildTypes {
@@ -35,6 +35,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
@@ -132,7 +133,7 @@ dependencies {
     ksp("androidx.hilt:hilt-compiler:1.1.0")
     
     // Gemini AI
-    implementation("com.google.ai.client.generativeai:generativeai:0.2.2")
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
     
     // Health Connect
     implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
@@ -163,6 +164,11 @@ dependencies {
     
     // Lottie for animations
     implementation("com.airbnb.android:lottie-compose:6.3.0")
+
+    // Video playback (ExoPlayer/Media3)
+    implementation("androidx.media3:media3-exoplayer:1.2.1")
+    implementation("androidx.media3:media3-ui:1.2.1")
+    implementation("androidx.media3:media3-datasource:1.2.1")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

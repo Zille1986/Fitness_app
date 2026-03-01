@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.Bundle
 import android.os.IBinder
+import android.util.Log
 import android.provider.Settings
 import android.view.KeyEvent
 import android.view.WindowManager
@@ -21,10 +22,13 @@ import com.runtracker.shared.data.model.WorkoutType
 import com.runtracker.wear.presentation.screens.SwimWorkoutTypeWatch
 import com.runtracker.wear.presentation.screens.CycleWorkoutTypeWatch
 import com.runtracker.wear.presentation.screens.HardwareButtonSosDialog
-import com.runtracker.wear.presentation.theme.WearRunTrackerTheme
+import com.runtracker.wear.presentation.theme.WearGoSteadyTheme
 import com.runtracker.wear.service.WearRunTrackingService
 import com.runtracker.wear.service.WearTrackingState
 import com.runtracker.wear.service.WorkoutHolder
+import com.google.android.gms.wearable.PutDataMapRequest
+import com.google.android.gms.wearable.Wearable
+import com.runtracker.shared.sync.DataLayerPaths
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
@@ -80,7 +84,7 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
         bindService()
 
         setContent {
-            WearRunTrackerTheme {
+            WearGoSteadyTheme {
                 val state by trackingState.collectAsState()
                 val ambient by isAmbient.collectAsState()
                 
@@ -106,7 +110,7 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
                 
                 val showSos by showSosDialog.collectAsState()
                 
-                WearRunTrackerApp(
+                WearGoSteadyApp(
                     trackingState = state,
                     isAmbient = ambient,
                     pendingWorkout = pending,
@@ -119,9 +123,12 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
                     onPauseRun = { pauseRun() },
                     onResumeRun = { resumeRun() },
                     onStopRun = { stopRun() },
-                    onClearPendingWorkout = { 
+                    onClearPendingWorkout = {
                         pendingWorkout.value = null
                         WorkoutHolder.pendingWorkout = null
+                    },
+                    onHIITComplete = { sessionJson ->
+                        sendHIITSessionToPhone(sessionJson)
                     }
                 )
                 
@@ -536,6 +543,30 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
         }
         
         return intervals
+    }
+
+    private fun sendHIITSessionToPhone(sessionJson: String) {
+        lifecycleScope.launch {
+            try {
+                val putDataReq = PutDataMapRequest.create(
+                    DataLayerPaths.HIIT_DATA_PATH + "/" + System.currentTimeMillis()
+                )
+                putDataReq.dataMap.putString(DataLayerPaths.KEY_HIIT_JSON, sessionJson)
+                putDataReq.setUrgent()
+
+                val putDataTask = Wearable.getDataClient(this@MainActivity)
+                    .putDataItem(putDataReq.asPutDataRequest())
+
+                putDataTask.addOnSuccessListener {
+                    Log.d("MainActivity", "HIIT session sent to phone successfully")
+                }
+                putDataTask.addOnFailureListener { e ->
+                    Log.e("MainActivity", "Failed to send HIIT session to phone", e)
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error sending HIIT session to phone", e)
+            }
+        }
     }
 
     private fun pauseRun() {

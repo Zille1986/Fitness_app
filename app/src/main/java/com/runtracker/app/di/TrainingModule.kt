@@ -18,7 +18,7 @@ object TrainingModule {
 
     @Provides
     @Singleton
-    fun provideTrainingPlanDao(database: RunTrackerDatabase): TrainingPlanDao {
+    fun provideTrainingPlanDao(database: GoSteadyDatabase): TrainingPlanDao {
         return database.trainingPlanDao()
     }
 
@@ -30,13 +30,13 @@ object TrainingModule {
 
     @Provides
     @Singleton
-    fun provideCustomRunWorkoutDao(database: RunTrackerDatabase): CustomRunWorkoutDao {
+    fun provideCustomRunWorkoutDao(database: GoSteadyDatabase): CustomRunWorkoutDao {
         return database.customRunWorkoutDao()
     }
 
     @Provides
     @Singleton
-    fun provideCustomTrainingPlanDao(database: RunTrackerDatabase): CustomTrainingPlanDao {
+    fun provideCustomTrainingPlanDao(database: GoSteadyDatabase): CustomTrainingPlanDao {
         return database.customTrainingPlanDao()
     }
 
@@ -51,7 +51,7 @@ object TrainingModule {
 
     @Provides
     @Singleton
-    fun providePersonalizedPlanDao(database: RunTrackerDatabase): PersonalizedPlanDao {
+    fun providePersonalizedPlanDao(database: GoSteadyDatabase): PersonalizedPlanDao {
         return database.personalizedPlanDao()
     }
 

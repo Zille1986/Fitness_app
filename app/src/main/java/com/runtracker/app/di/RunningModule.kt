@@ -2,7 +2,7 @@ package com.runtracker.app.di
 
 import com.runtracker.shared.data.db.PersonalBestDao
 import com.runtracker.shared.data.db.RunDao
-import com.runtracker.shared.data.db.RunTrackerDatabase
+import com.runtracker.shared.data.db.GoSteadyDatabase
 import com.runtracker.shared.data.repository.PersonalBestRepository
 import com.runtracker.shared.data.repository.RunRepository
 import dagger.Module
@@ -17,7 +17,7 @@ object RunningModule {
 
     @Provides
     @Singleton
-    fun provideRunDao(database: RunTrackerDatabase): RunDao {
+    fun provideRunDao(database: GoSteadyDatabase): RunDao {
         return database.runDao()
     }
 
@@ -29,7 +29,7 @@ object RunningModule {
 
     @Provides
     @Singleton
-    fun providePersonalBestDao(database: RunTrackerDatabase): PersonalBestDao {
+    fun providePersonalBestDao(database: GoSteadyDatabase): PersonalBestDao {
         return database.personalBestDao()
     }
 

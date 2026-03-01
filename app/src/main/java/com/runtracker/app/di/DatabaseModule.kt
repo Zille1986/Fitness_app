@@ -1,7 +1,7 @@
 package com.runtracker.app.di
 
 import android.content.Context
-import com.runtracker.shared.data.db.RunTrackerDatabase
+import com.runtracker.shared.data.db.GoSteadyDatabase
 import com.runtracker.shared.location.LocationTracker
 import dagger.Module
 import dagger.Provides
@@ -16,8 +16,8 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): RunTrackerDatabase {
-        return RunTrackerDatabase.getDatabase(context)
+    fun provideDatabase(@ApplicationContext context: Context): GoSteadyDatabase {
+        return GoSteadyDatabase.getDatabase(context)
     }
 
     @Provides

@@ -17,7 +17,8 @@ data class Exercise(
     val instructions: List<String> = emptyList(),
     val tips: List<String> = emptyList(),
     val isCustom: Boolean = false,
-    val imageUrl: String? = null
+    val imageUrl: String? = null,
+    val videoFileName: String? = null  // Asset filename without extension, e.g. "barbell-bench-press"
 )
 
 enum class MuscleGroup {

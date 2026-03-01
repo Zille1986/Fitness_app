@@ -29,6 +29,7 @@ fun GymDashboardScreenNew(
     onCreateTemplate: () -> Unit = {},
     onEditTemplate: (Long) -> Unit = {},
     onScheduleWorkouts: () -> Unit = {},
+    onViewHIIT: () -> Unit = {},
     viewModel: GymDashboardViewModelNew = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -151,7 +152,13 @@ fun GymDashboardScreenNew(
                         subtitle = "Check your form",
                         onClick = onViewFormAnalysis
                     )
-                    Spacer(modifier = Modifier.weight(1f))
+                    QuickActionCard(
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Default.LocalFireDepartment,
+                        title = "HIIT",
+                        subtitle = "Interval training",
+                        onClick = onViewHIIT
+                    )
                 }
             }
 

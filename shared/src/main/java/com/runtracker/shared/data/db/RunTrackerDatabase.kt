@@ -38,13 +38,14 @@ import com.runtracker.shared.data.model.*
         CyclingWorkout::class,
         CyclingTrainingPlan::class,
         SafetySettings::class,
-        CheckInSession::class
+        CheckInSession::class,
+        HIITSession::class
     ],
-    version = 14,
+    version = 16,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
-abstract class RunTrackerDatabase : RoomDatabase() {
+abstract class GoSteadyDatabase : RoomDatabase() {
     abstract fun runDao(): RunDao
     abstract fun trainingPlanDao(): TrainingPlanDao
     abstract fun userProfileDao(): UserProfileDao
@@ -68,16 +69,17 @@ abstract class RunTrackerDatabase : RoomDatabase() {
     abstract fun cyclingWorkoutDao(): CyclingWorkoutDao
     abstract fun cyclingTrainingPlanDao(): CyclingTrainingPlanDao
     abstract fun safetyDao(): SafetyDao
+    abstract fun hiitDao(): HIITDao
 
     companion object {
         @Volatile
-        private var INSTANCE: RunTrackerDatabase? = null
+        private var INSTANCE: GoSteadyDatabase? = null
 
-        fun getDatabase(context: Context): RunTrackerDatabase {
+        fun getDatabase(context: Context): GoSteadyDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
-                    RunTrackerDatabase::class.java,
+                    GoSteadyDatabase::class.java,
                     "runtracker_database"
                 )
                     .fallbackToDestructiveMigration()

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="splash_background">#0D1117</color>
+    <color name="splash_background">#FF6B4A</color>
+    <color name="primary_coral">#FF6B4A</color>
+    <color name="primary_amber">#FFAB40</color>
     <color name="primary_cyan">#00E5CC</color>
     <color name="secondary_green">#7EE787</color>
 </resources>

@@ -4,18 +4,33 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group android:scaleX="0.4"
-        android:scaleY="0.4"
-        android:translateX="32.4"
-        android:translateY="32.4">
+    <!-- GoSteady logo: Stylized G with heart-rate pulse (wear variant) -->
+    <group
+        android:scaleX="0.6"
+        android:scaleY="0.6"
+        android:translateX="21.6"
+        android:translateY="21.6">
+        <!-- G letter - main arc (open circle with gap at right) -->
         <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M54,27c-14.9,0 -27,12.1 -27,27s12.1,27 27,27s27,-12.1 27,-27S68.9,27 54,27zM54,75c-11.6,0 -21,-9.4 -21,-21s9.4,-21 21,-21s21,9.4 21,21S65.6,75 54,75z"/>
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="8"
+            android:strokeLineCap="round"
+            android:pathData="M78,64.5c-3.5,11.2 -14,19.5 -24,19.5c-16.6,0 -30,-13.4 -30,-30s13.4,-30 30,-30c9.4,0 17.8,4.3 23.3,11.1"
+            android:fillColor="#00000000"/>
+        <!-- G crossbar base (horizontal line from center going right) -->
         <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M54,39c-8.3,0 -15,6.7 -15,15s6.7,15 15,15s15,-6.7 15,-15S62.3,39 54,39zM54,63c-5,0 -9,-4 -9,-9s4,-9 9,-9s9,4 9,9S59,63 54,63z"/>
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="7"
+            android:strokeLineCap="round"
+            android:pathData="M54,54L66,54"
+            android:fillColor="#00000000"/>
+        <!-- Heart-rate pulse waveform on the crossbar -->
         <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M67.5,22.5l-4.2,4.2c3.9,2.3 7,5.4 9.3,9.3l4.2,-4.2C73.9,27.9 71,24.9 67.5,22.5z"/>
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="4.5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M66,54L72,54L76,42L80,66L84,48L88,54L96,54"
+            android:fillColor="#00000000"/>
     </group>
 </vector>

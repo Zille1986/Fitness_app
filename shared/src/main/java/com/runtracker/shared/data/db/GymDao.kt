@@ -78,6 +78,9 @@ interface GymWorkoutDao {
     @Query("SELECT * FROM gym_workouts WHERE isCompleted = 0 ORDER BY startTime DESC LIMIT 1")
     suspend fun getActiveWorkout(): GymWorkout?
 
+    @Query("SELECT * FROM gym_workouts WHERE startTime >= :startTime AND startTime <= :endTime AND isCompleted = 1 ORDER BY startTime DESC")
+    suspend fun getCompletedWorkoutsInRange(startTime: Long, endTime: Long): List<GymWorkout>
+
     @Query("SELECT SUM(totalVolume) FROM gym_workouts WHERE startTime >= :startTime AND startTime <= :endTime")
     suspend fun getTotalVolumeInRange(startTime: Long, endTime: Long): Double?
 
@@ -152,4 +155,10 @@ interface ExerciseHistoryDao {
 
     @Query("SELECT DISTINCT exerciseId FROM exercise_history ORDER BY date DESC")
     suspend fun getExercisesWithHistory(): List<Long>
+
+    @Query("SELECT * FROM exercise_history WHERE workoutId = :workoutId AND exerciseId = :exerciseId LIMIT 1")
+    suspend fun getHistoryForWorkoutExercise(workoutId: Long, exerciseId: Long): ExerciseHistory?
+
+    @Update
+    suspend fun updateHistory(history: ExerciseHistory)
 }

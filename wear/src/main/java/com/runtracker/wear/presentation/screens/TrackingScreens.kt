@@ -16,12 +16,35 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.wear.compose.material.*
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.wear.compose.material.*
 import com.runtracker.wear.service.WearTrackingState
+
+/** Responsive sizing helpers based on screen diameter */
+@Composable
+private fun screenDiameterDp(): Dp {
+    val config = LocalConfiguration.current
+    return minOf(config.screenWidthDp, config.screenHeightDp).dp
+}
+
+/** Scale a dp value relative to a 200dp baseline (typical small round watch) */
+@Composable
+private fun scaledDp(baseDp: Dp): Dp {
+    val screen = screenDiameterDp()
+    return baseDp * (screen / 200.dp)
+}
+
+/** Inset padding for round screens — larger padding near edges to avoid clipping */
+@Composable
+private fun roundScreenPadding(): Dp {
+    val config = LocalConfiguration.current
+    return if (config.isScreenRound) 12.dp else 4.dp
+}
 
 @Composable
 fun TrackingPagerScreen(
@@ -78,17 +101,18 @@ fun TrackingPagerScreen(
             }
         }
 
-        // Page indicator dots
+        // Page indicator dots — inset for round screens
+        val edgePadding = roundScreenPadding()
         Column(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 4.dp),
+                .padding(end = edgePadding),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             repeat(pageCount) { index ->
                 Box(
                     modifier = Modifier
-                        .size(6.dp)
+                        .size(5.dp)
                         .background(
                             color = if (currentPage == index)
                                 MaterialTheme.colors.primary
@@ -161,10 +185,11 @@ fun MainTrackingPage(
             .background(MaterialTheme.colors.background),
         contentAlignment = Alignment.Center
     ) {
+        val screenPadding = roundScreenPadding()
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(8.dp),
+                .padding(horizontal = screenPadding, vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceEvenly
         ) {
@@ -240,31 +265,38 @@ fun MainTrackingPage(
                 )
             }
 
-            // Controls
+            // Controls — responsive button sizes based on screen diameter
+            val screen = screenDiameterDp()
+            val safetyBtnSize = (screen * 0.18f).coerceIn(32.dp, 44.dp)
+            val stopBtnSize = (screen * 0.21f).coerceIn(36.dp, 50.dp)
+            val pauseBtnSize = (screen * 0.25f).coerceIn(42.dp, 58.dp)
+            val btnFontSmall = (screen.value * 0.07f).coerceIn(12f, 16f).sp
+            val btnFontLarge = (screen.value * 0.09f).coerceIn(14f, 20f).sp
+
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 4.dp)
             ) {
                 Button(
                     onClick = onOpenSafetyMenu,
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier.size(safetyBtnSize),
                     colors = ButtonDefaults.buttonColors(backgroundColor = WearColors.Danger)
                 ) {
-                    Text("🛡", fontSize = 14.sp)
+                    Text("🛡", fontSize = btnFontSmall)
                 }
 
                 Button(
                     onClick = onShowStopConfirmation,
-                    modifier = Modifier.size(42.dp),
+                    modifier = Modifier.size(stopBtnSize),
                     colors = ButtonDefaults.buttonColors(backgroundColor = WearColors.ZoneAbove)
                 ) {
-                    Text("■", fontSize = 18.sp, color = Color.White)
+                    Text("■", fontSize = btnFontLarge, color = Color.White)
                 }
 
                 Button(
                     onClick = if (trackingState.isPaused) onResume else onPause,
-                    modifier = Modifier.size(50.dp),
+                    modifier = Modifier.size(pauseBtnSize),
                     colors = ButtonDefaults.buttonColors(
                         backgroundColor = if (trackingState.isPaused)
                             MaterialTheme.colors.primary
@@ -274,7 +306,7 @@ fun MainTrackingPage(
                 ) {
                     Text(
                         text = if (trackingState.isPaused) "▶" else "❚❚",
-                        fontSize = 18.sp,
+                        fontSize = btnFontLarge,
                         color = Color.White
                     )
                 }
@@ -362,7 +394,7 @@ fun HeartRateZonePage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
+                .padding(horizontal = roundScreenPadding(), vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceEvenly
         ) {
@@ -452,7 +484,7 @@ fun PaceZonePage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
+                .padding(horizontal = roundScreenPadding(), vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceEvenly
         ) {
@@ -516,12 +548,13 @@ fun ZoneArcIndicator(
     val cosAngle = remember(indicatorAngle) { kotlin.math.cos(indicatorAngle).toFloat() }
     val sinAngle = remember(indicatorAngle) { kotlin.math.sin(indicatorAngle).toFloat() }
 
+    val arcSize = scaledDp(120.dp).coerceIn(80.dp, 160.dp)
     Box(
-        modifier = Modifier.size(120.dp),
+        modifier = Modifier.size(arcSize),
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidth = 12.dp.toPx()
+            val strokeWidth = (size.minDimension * 0.1f).coerceIn(6f, 18f)
             val arcSize = size.minDimension - strokeWidth
             val topLeft = Offset((size.width - arcSize) / 2, (size.height - arcSize) / 2)
 
@@ -663,7 +696,7 @@ fun CompeteModePage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
+                .padding(horizontal = roundScreenPadding(), vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -680,11 +713,12 @@ fun CompeteModePage(
                 color = if (isAmbient) Color.Gray else MaterialTheme.colors.onSurfaceVariant
             )
 
-            // Track with runners
+            // Track with runners — responsive height
+            val trackHeight = scaledDp(80.dp).coerceIn(55.dp, 100.dp)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(80.dp)
+                    .height(trackHeight)
                     .padding(horizontal = 8.dp)
             ) {
                 val runnerColor = if (pbTimeMillis == null || isAhead)
@@ -833,11 +867,12 @@ fun StopConfirmationDialog(
         ) {
             Text(text = title, style = MaterialTheme.typography.title3, textAlign = TextAlign.Center)
             Text(text = subtitle, style = MaterialTheme.typography.body2, textAlign = TextAlign.Center)
+            val dialogBtnSize = scaledDp(48.dp).coerceIn(38.dp, 56.dp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onDismiss, colors = ButtonDefaults.secondaryButtonColors(),
-                    modifier = Modifier.size(48.dp)) { Text("X", fontSize = 16.sp) }
+                    modifier = Modifier.size(dialogBtnSize)) { Text("X", fontSize = 16.sp) }
                 Button(onClick = onConfirm, colors = ButtonDefaults.primaryButtonColors(),
-                    modifier = Modifier.size(48.dp)) { Text("OK", fontSize = 12.sp) }
+                    modifier = Modifier.size(dialogBtnSize)) { Text("OK", fontSize = 12.sp) }
             }
         }
     }

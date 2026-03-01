@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -58,6 +59,9 @@ fun HomeScreen(
         }
     }
 
+    val config = LocalConfiguration.current
+    val horizontalPad = if (config.isScreenRound) 14.dp else 8.dp
+
     SwipeToDismissBox(
         state = swipeToDismissBoxState,
         onDismissed = onBack
@@ -68,7 +72,7 @@ fun HomeScreen(
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 autoCentering = AutoCenteringParams(itemIndex = 0),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 26.dp),
+                contentPadding = PaddingValues(horizontal = horizontalPad, vertical = 26.dp),
                 flingBehavior = ScalingLazyColumnDefaults.snapFlingBehavior(state = listState)
             ) {
                 item {
@@ -109,7 +113,7 @@ fun HomeScreen(
                                         color = MaterialTheme.colors.onSurfaceVariant)
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             colors = ChipDefaults.primaryChipColors(backgroundColor = WearColors.Success)
                         )
                     }
@@ -141,7 +145,7 @@ fun HomeScreen(
                                     color = MaterialTheme.colors.onSurfaceVariant)
                             }
                         },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         colors = ChipDefaults.secondaryChipColors()
                     )
                 }
@@ -258,7 +262,7 @@ fun WorkoutSelectScreen(
                                         color = MaterialTheme.colors.onSurfaceVariant)
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             colors = ChipDefaults.primaryChipColors()
                         )
                     }
@@ -279,7 +283,7 @@ fun WorkoutSelectScreen(
                                             color = MaterialTheme.colors.onSurfaceVariant)
                                     }
                                 },
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 colors = ChipDefaults.secondaryChipColors()
                             )
                         }
@@ -304,7 +308,7 @@ fun WorkoutSelectScreen(
                                             color = MaterialTheme.colors.onSurfaceVariant)
                                     }
                                 },
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 colors = ChipDefaults.secondaryChipColors()
                             )
                         }
@@ -598,7 +602,7 @@ fun CustomWorkoutsScreen(
                                             color = MaterialTheme.colors.onSurfaceVariant)
                                     }
                                 },
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 colors = ChipDefaults.secondaryChipColors()
                             )
                         }

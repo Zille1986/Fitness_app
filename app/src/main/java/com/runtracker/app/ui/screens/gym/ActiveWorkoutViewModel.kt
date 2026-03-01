@@ -46,10 +46,31 @@ class ActiveWorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             // First try to get the template
             val template = gymRepository.getTemplateById(templateId)
-            
+
             if (template != null) {
-                // Create a new workout from the template
+                // Load progression suggestions for each exercise to prefill weight/reps
+                val suggestions = template.exercises.associate { templateExercise ->
+                    val exercise = gymRepository.getExerciseById(templateExercise.exerciseId)
+                    val suggestion = if (exercise != null) {
+                        gymRepository.getProgressionSuggestion(
+                            templateExercise.exerciseId,
+                            exercise.name,
+                            templateExercise.targetReps
+                        )
+                    } else null
+                    templateExercise.exerciseId to suggestion
+                }
+
+                // Create a new workout from the template with prefilled values
                 val exercises = template.exercises.map { templateExercise ->
+                    val suggestion = suggestions[templateExercise.exerciseId]
+                    val prefillWeight = if (suggestion != null && suggestion.confidence > 0f) {
+                        suggestion.suggestedWeight
+                    } else 0.0
+                    val prefillReps = if (suggestion != null && suggestion.confidence > 0f) {
+                        suggestion.suggestedReps
+                    } else 0
+
                     WorkoutExercise(
                         id = UUID.randomUUID().toString(),
                         exerciseId = templateExercise.exerciseId,
@@ -58,6 +79,8 @@ class ActiveWorkoutViewModel @Inject constructor(
                             WorkoutSet(
                                 id = UUID.randomUUID().toString(),
                                 setNumber = setNum,
+                                weight = prefillWeight,
+                                reps = prefillReps,
                                 targetReps = templateExercise.targetReps.first
                             )
                         },
@@ -75,7 +98,7 @@ class ActiveWorkoutViewModel @Inject constructor(
 
                 actualWorkoutId = gymRepository.insertWorkout(workout)
                 gymRepository.incrementTemplateUsage(template.id)
-                
+
                 // Now load the created workout
                 loadWorkout(actualWorkoutId)
             } else {
@@ -112,13 +135,29 @@ class ActiveWorkoutViewModel @Inject constructor(
             val bestWeight = gymRepository.getBestWeight(exerciseId)
             val recentHistory = gymRepository.getRecentHistoryForExercise(exerciseId, 1)
             val lastWorkout = recentHistory.firstOrNull()
-            
+
+            // Load exercise name for progression suggestion
+            val exercise = gymRepository.getExerciseById(exerciseId)
+            val exerciseName = exercise?.name ?: ""
+
+            // Load progression suggestion
+            val suggestion = if (exerciseName.isNotEmpty()) {
+                gymRepository.getProgressionSuggestion(exerciseId, exerciseName)
+            } else null
+
             android.util.Log.d("ActiveWorkoutVM", "exerciseId=$exerciseId: bestOneRepMax=$bestOneRepMax, bestWeight=$bestWeight, lastWorkout=$lastWorkout")
-            
+
             _uiState.update { state ->
                 val updatedPBs = state.exercisePBs.toMutableMap()
                 val updatedLastWorkouts = state.exerciseLastWorkouts.toMutableMap()
-                
+                val updatedSuggestions = state.exerciseSuggestions.toMutableMap()
+                val updatedVideoFileNames = state.exerciseVideoFileNames.toMutableMap()
+
+                // Store video file name if available
+                exercise?.videoFileName?.let { videoFile ->
+                    updatedVideoFileNames[exerciseId] = videoFile
+                }
+
                 if (bestOneRepMax != null || bestWeight != null) {
                     updatedPBs[exerciseId] = ExercisePB(
                         exerciseId = exerciseId,
@@ -131,14 +170,20 @@ class ActiveWorkoutViewModel @Inject constructor(
                 } else {
                     android.util.Log.d("ActiveWorkoutVM", "No PB data found for exerciseId=$exerciseId")
                 }
-                
+
                 if (lastWorkout != null) {
                     updatedLastWorkouts[exerciseId] = lastWorkout
                 }
-                
+
+                if (suggestion != null && suggestion.confidence > 0.5f) {
+                    updatedSuggestions[exerciseId] = suggestion
+                }
+
                 state.copy(
                     exercisePBs = updatedPBs,
-                    exerciseLastWorkouts = updatedLastWorkouts
+                    exerciseLastWorkouts = updatedLastWorkouts,
+                    exerciseSuggestions = updatedSuggestions,
+                    exerciseVideoFileNames = updatedVideoFileNames
                 )
             }
         }
@@ -453,7 +498,9 @@ data class ActiveWorkoutUiState(
     val isLoading: Boolean = true,
     val isFinished: Boolean = false,
     val exercisePBs: Map<Long, ExercisePB> = emptyMap(),
-    val exerciseLastWorkouts: Map<Long, ExerciseHistory> = emptyMap()
+    val exerciseLastWorkouts: Map<Long, ExerciseHistory> = emptyMap(),
+    val exerciseSuggestions: Map<Long, ProgressionSuggestion> = emptyMap(),
+    val exerciseVideoFileNames: Map<Long, String> = emptyMap()
 ) {
     val elapsedFormatted: String
         get() {

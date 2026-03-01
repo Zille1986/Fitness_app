@@ -16,6 +16,7 @@ import com.google.android.gms.wearable.WearableListenerService
 import com.google.gson.reflect.TypeToken
 import com.google.gson.Gson
 import com.runtracker.app.R
+import com.runtracker.shared.data.model.HIITSession
 import com.runtracker.shared.data.model.RoutePoint
 import com.runtracker.shared.data.model.Run
 import com.runtracker.shared.data.model.SwimmingWorkout
@@ -23,6 +24,7 @@ import com.runtracker.shared.data.model.CyclingWorkout
 import com.runtracker.shared.util.CompressionUtils
 import kotlinx.coroutines.tasks.await
 import com.runtracker.shared.data.repository.PersonalBestRepository
+import com.runtracker.shared.data.repository.HIITRepository
 import com.runtracker.shared.data.repository.RunRepository
 import com.runtracker.shared.data.repository.SwimmingRepository
 import com.runtracker.shared.data.repository.CyclingRepository
@@ -47,6 +49,9 @@ class WearableListenerService : WearableListenerService() {
     
     @Inject
     lateinit var cyclingRepository: CyclingRepository
+
+    @Inject
+    lateinit var hiitRepository: HIITRepository
     
     @Inject
     lateinit var personalBestRepository: PersonalBestRepository
@@ -114,6 +119,9 @@ class WearableListenerService : WearableListenerService() {
                 }
                 path.startsWith(DataLayerPaths.CYCLING_DATA_PATH) -> {
                     handleCyclingData(event)
+                }
+                path.startsWith(DataLayerPaths.HIIT_DATA_PATH) -> {
+                    handleHIITData(event)
                 }
                 path.startsWith(DataLayerPaths.HEART_RATE_PATH) -> {
                     handleHeartRateData(event)
@@ -323,21 +331,33 @@ class WearableListenerService : WearableListenerService() {
             Log.e("WearableListener", "Error checking PBs", e)
         }
 
-        // Upload to Strava if connected
-        if (stravaService.isConnected) {
-            Log.d("WearableListener", "Uploading watch run to Strava...")
+        // Upload to Strava — let uploadRun() handle token refresh internally
+        // Don't gate on isConnected because SharedPreferences can be stale
+        // when WearableListenerService is cold-started by the system
+        try {
+            Log.d("WearableListener", "Attempting Strava upload for watch run...")
             val result = stravaService.uploadRun(savedRun)
             result.fold(
                 onSuccess = { stravaId ->
                     Log.d("WearableListener", "Successfully uploaded to Strava, id: $stravaId")
+                    // Update run with Strava ID so it shows as uploaded
+                    try {
+                        runRepository.updateRun(savedRun.copy(stravaId = stravaId.toString()))
+                    } catch (e: Exception) {
+                        Log.e("WearableListener", "Failed to update run with Strava ID", e)
+                    }
                 },
                 onFailure = { error ->
                     Log.e("WearableListener", "Strava upload failed: ${error.message}", error)
-                    showStravaFailureNotification("Run saved locally but Strava upload failed: ${error.message}")
+                    if (error.message?.contains("Not authenticated") == true) {
+                        Log.d("WearableListener", "Strava not connected, skipping notification")
+                    } else {
+                        showStravaFailureNotification("Run saved locally but Strava upload failed: ${error.message}")
+                    }
                 }
             )
-        } else {
-            Log.d("WearableListener", "Strava not connected, skipping upload")
+        } catch (e: Exception) {
+            Log.e("WearableListener", "Unexpected error during Strava upload", e)
         }
 
         Log.d("WearableListener", "Run saved successfully from watch")
@@ -365,17 +385,23 @@ class WearableListenerService : WearableListenerService() {
                 
                 val savedSwim = swim.copy(id = insertedId)
                 
-                // Upload to Strava if connected
+                // Upload to Strava — let upload handle token refresh internally
                 try {
-                    if (stravaService.isConnected) {
-                        Log.d("WearableListener", "Uploading watch swim to Strava...")
-                        stravaService.uploadSwim(savedSwim)
-                        Log.d("WearableListener", "Successfully uploaded swim to Strava")
-                    } else {
-                        Log.d("WearableListener", "Strava not connected, skipping swim upload")
-                    }
+                    Log.d("WearableListener", "Attempting Strava upload for watch swim...")
+                    val result = stravaService.uploadSwim(savedSwim)
+                    result.fold(
+                        onSuccess = { stravaId ->
+                            Log.d("WearableListener", "Successfully uploaded swim to Strava, id: $stravaId")
+                        },
+                        onFailure = { error ->
+                            Log.e("WearableListener", "Strava swim upload failed: ${error.message}", error)
+                            if (error.message?.contains("Not authenticated") != true) {
+                                showStravaFailureNotification("Swim saved locally but Strava upload failed: ${error.message}")
+                            }
+                        }
+                    )
                 } catch (e: Exception) {
-                    Log.e("WearableListener", "Error uploading swim to Strava", e)
+                    Log.e("WearableListener", "Unexpected error during Strava swim upload", e)
                 }
                 
                 Log.d("WearableListener", "Swim saved successfully from watch")
@@ -409,23 +435,76 @@ class WearableListenerService : WearableListenerService() {
                 
                 val savedRide = ride.copy(id = insertedId)
                 
-                // Upload to Strava if connected
+                // Upload to Strava — let upload handle token refresh internally
                 try {
-                    if (stravaService.isConnected) {
-                        Log.d("WearableListener", "Uploading watch ride to Strava...")
-                        stravaService.uploadCycling(savedRide)
-                        Log.d("WearableListener", "Successfully uploaded ride to Strava")
-                    } else {
-                        Log.d("WearableListener", "Strava not connected, skipping ride upload")
-                    }
+                    Log.d("WearableListener", "Attempting Strava upload for watch ride...")
+                    val result = stravaService.uploadCycling(savedRide)
+                    result.fold(
+                        onSuccess = { stravaId ->
+                            Log.d("WearableListener", "Successfully uploaded ride to Strava, id: $stravaId")
+                        },
+                        onFailure = { error ->
+                            Log.e("WearableListener", "Strava cycling upload failed: ${error.message}", error)
+                            if (error.message?.contains("Not authenticated") != true) {
+                                showStravaFailureNotification("Ride saved locally but Strava upload failed: ${error.message}")
+                            }
+                        }
+                    )
                 } catch (e: Exception) {
-                    Log.e("WearableListener", "Error uploading ride to Strava", e)
+                    Log.e("WearableListener", "Unexpected error during Strava cycling upload", e)
                 }
                 
                 Log.d("WearableListener", "Ride saved successfully from watch")
                 
             } catch (e: Exception) {
                 Log.e("WearableListener", "Error handling cycling data", e)
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun handleHIITData(event: DataEvent) {
+        serviceScope.launch {
+            try {
+                val dataMapItem = DataMapItem.fromDataItem(event.dataItem)
+                val hiitJson = dataMapItem.dataMap.getString(DataLayerPaths.KEY_HIIT_JSON)
+
+                if (hiitJson.isNullOrEmpty()) {
+                    Log.e("WearableListener", "HIIT JSON is null or empty")
+                    return@launch
+                }
+
+                Log.d("WearableListener", "Received HIIT JSON: ${hiitJson.take(200)}...")
+
+                // Parse the session data from watch
+                val sessionData = gson.fromJson(hiitJson, Map::class.java)
+                val templateId = sessionData["templateId"] as? String ?: ""
+                val templateName = sessionData["templateName"] as? String ?: "HIIT Workout"
+                val totalDurationMs = ((sessionData["totalDurationMs"] as? Number)?.toLong()) ?: 0L
+                val exerciseCount = ((sessionData["exerciseCount"] as? Number)?.toInt()) ?: 0
+                val roundsCompleted = ((sessionData["roundsCompleted"] as? Number)?.toInt()) ?: 0
+                val totalRounds = ((sessionData["totalRounds"] as? Number)?.toInt()) ?: 0
+                val caloriesEstimate = ((sessionData["caloriesEstimate"] as? Number)?.toInt()) ?: 0
+                val isCompleted = sessionData["isCompleted"] as? Boolean ?: true
+
+                val hiitSession = HIITSession(
+                    date = System.currentTimeMillis(),
+                    templateId = templateId,
+                    templateName = templateName,
+                    totalDurationMs = totalDurationMs,
+                    exerciseCount = exerciseCount,
+                    roundsCompleted = roundsCompleted,
+                    totalRounds = totalRounds,
+                    caloriesEstimate = caloriesEstimate,
+                    isCompleted = isCompleted,
+                    source = "watch"
+                )
+
+                val insertedId = hiitRepository.insertSession(hiitSession)
+                Log.d("WearableListener", "HIIT session saved from watch with id: $insertedId")
+
+            } catch (e: Exception) {
+                Log.e("WearableListener", "Error handling HIIT data", e)
                 e.printStackTrace()
             }
         }

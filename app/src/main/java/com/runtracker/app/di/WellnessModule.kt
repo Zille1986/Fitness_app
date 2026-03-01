@@ -1,7 +1,7 @@
 package com.runtracker.app.di
 
 import com.runtracker.shared.data.db.MentalHealthDao
-import com.runtracker.shared.data.db.RunTrackerDatabase
+import com.runtracker.shared.data.db.GoSteadyDatabase
 import com.runtracker.shared.data.repository.FormReviewRepository
 import com.runtracker.shared.data.repository.MentalHealthRepository
 import dagger.Module
@@ -16,7 +16,7 @@ object WellnessModule {
 
     @Provides
     @Singleton
-    fun provideMentalHealthDao(database: RunTrackerDatabase): MentalHealthDao {
+    fun provideMentalHealthDao(database: GoSteadyDatabase): MentalHealthDao {
         return database.mentalHealthDao()
     }
 

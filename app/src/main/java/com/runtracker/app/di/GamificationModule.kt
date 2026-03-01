@@ -1,7 +1,7 @@
 package com.runtracker.app.di
 
 import com.runtracker.shared.data.db.GamificationDao
-import com.runtracker.shared.data.db.RunTrackerDatabase
+import com.runtracker.shared.data.db.GoSteadyDatabase
 import com.runtracker.shared.data.repository.GamificationRepository
 import dagger.Module
 import dagger.Provides
@@ -15,7 +15,7 @@ object GamificationModule {
 
     @Provides
     @Singleton
-    fun provideGamificationDao(database: RunTrackerDatabase): GamificationDao {
+    fun provideGamificationDao(database: GoSteadyDatabase): GamificationDao {
         return database.gamificationDao()
     }
 

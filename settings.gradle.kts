@@ -14,7 +14,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "RunTracker"
+rootProject.name = "GoSteady"
 include(":app")
 include(":shared")
 include(":wear")

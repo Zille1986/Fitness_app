@@ -4,58 +4,33 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Modern running figure with gradient effect -->
-    <group android:scaleX="0.55"
+    <!-- GoSteady logo: Stylized G with heart-rate pulse -->
+    <group
+        android:scaleX="0.55"
         android:scaleY="0.55"
-        android:translateX="24"
-        android:translateY="24">
-        <!-- Outer glow ring -->
+        android:translateX="24.3"
+        android:translateY="24.3">
+        <!-- G letter - main arc (open circle with gap at right) -->
         <path
-            android:fillColor="#00E5CC"
-            android:fillAlpha="0.3"
-            android:pathData="M54,20c-18.8,0 -34,15.2 -34,34s15.2,34 34,34s34,-15.2 34,-34S72.8,20 54,20zM54,82c-15.5,0 -28,-12.5 -28,-28s12.5,-28 28,-28s28,12.5 28,28S69.5,82 54,82z"/>
-        <!-- Main ring -->
-        <path
-            android:fillColor="#00E5CC"
-            android:pathData="M54,26c-15.5,0 -28,12.5 -28,28s12.5,28 28,28s28,-12.5 28,-28S69.5,26 54,26zM54,76c-12.1,0 -22,-9.9 -22,-22s9.9,-22 22,-22s22,9.9 22,22S66.1,76 54,76z"/>
-        <!-- Running figure - head -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M58,38m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0"/>
-        <!-- Running figure - body -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M56,45l-3,12l8,0l-3,-12z"/>
-        <!-- Running figure - front leg -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:strokeWidth="3"
             android:strokeColor="#FFFFFF"
-            android:pathData="M58,57l8,10"/>
-        <!-- Running figure - back leg -->
+            android:strokeWidth="8"
+            android:strokeLineCap="round"
+            android:pathData="M78,64.5c-3.5,11.2 -14,19.5 -24,19.5c-16.6,0 -30,-13.4 -30,-30s13.4,-30 30,-30c9.4,0 17.8,4.3 23.3,11.1"
+            android:fillColor="#00000000"/>
+        <!-- G crossbar base (horizontal line from center going right) -->
         <path
-            android:fillColor="#FFFFFF"
-            android:strokeWidth="3"
             android:strokeColor="#FFFFFF"
-            android:pathData="M54,57l-6,8"/>
-        <!-- Running figure - front arm -->
+            android:strokeWidth="7"
+            android:strokeLineCap="round"
+            android:pathData="M54,54L66,54"
+            android:fillColor="#00000000"/>
+        <!-- Heart-rate pulse waveform on the crossbar -->
         <path
-            android:fillColor="#FFFFFF"
-            android:strokeWidth="2.5"
             android:strokeColor="#FFFFFF"
-            android:pathData="M54,48l-7,5"/>
-        <!-- Running figure - back arm -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:strokeWidth="2.5"
-            android:strokeColor="#FFFFFF"
-            android:pathData="M60,48l5,3"/>
-        <!-- Activity dots -->
-        <path
-            android:fillColor="#7EE787"
-            android:pathData="M32,54m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0"/>
-        <path
-            android:fillColor="#00E5CC"
-            android:pathData="M76,54m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0"/>
+            android:strokeWidth="4.5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M66,54L72,54L76,42L80,66L84,48L88,54L96,54"
+            android:fillColor="#00000000"/>
     </group>
 </vector>

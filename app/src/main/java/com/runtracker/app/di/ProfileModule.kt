@@ -1,6 +1,6 @@
 package com.runtracker.app.di
 
-import com.runtracker.shared.data.db.RunTrackerDatabase
+import com.runtracker.shared.data.db.GoSteadyDatabase
 import com.runtracker.shared.data.db.UserProfileDao
 import com.runtracker.shared.data.repository.UserRepository
 import dagger.Module
@@ -15,7 +15,7 @@ object ProfileModule {
 
     @Provides
     @Singleton
-    fun provideUserProfileDao(database: RunTrackerDatabase): UserProfileDao {
+    fun provideUserProfileDao(database: GoSteadyDatabase): UserProfileDao {
         return database.userProfileDao()
     }
 

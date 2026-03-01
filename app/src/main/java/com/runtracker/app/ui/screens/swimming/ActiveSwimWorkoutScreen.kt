@@ -238,7 +238,7 @@ fun ActiveSwimWorkoutScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
-                    text = "Tap after each lap",
+                    text = "Tap after each lap (${uiState.poolLength?.displayName ?: "25m"})",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

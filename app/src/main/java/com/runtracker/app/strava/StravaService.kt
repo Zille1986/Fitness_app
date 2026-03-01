@@ -25,7 +25,9 @@ import javax.inject.Singleton
 class StravaService @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    private val prefs: SharedPreferences = context.getSharedPreferences("strava_prefs", Context.MODE_PRIVATE)
+    // Use getter to avoid stale SharedPreferences when service is cold-started
+    private val prefs: SharedPreferences
+        get() = context.getSharedPreferences("strava_prefs", Context.MODE_PRIVATE)
     
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(HttpLoggingInterceptor().apply {
@@ -145,18 +147,21 @@ class StravaService @Inject constructor(
     }
     
     suspend fun uploadRun(run: Run): Result<Long> {
+        android.util.Log.d("StravaService", "uploadRun called: distance=${run.distanceMeters}m, routePoints=${run.routePoints.size}, hasToken=${getAccessToken() != null}")
         val token = ensureValidToken() ?: return Result.failure(Exception("Not authenticated"))
-        
+
         return try {
             // If we have GPS data, upload as GPX file for full route
             if (run.routePoints.isNotEmpty()) {
+                android.util.Log.d("StravaService", "Uploading with GPX (${run.routePoints.size} points)")
                 uploadRunWithGpx(run, token)
             } else {
                 // Fallback to simple activity creation without GPS
+                android.util.Log.d("StravaService", "Uploading simple (no GPS data)")
                 uploadRunSimple(run, token)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("StravaService", "uploadRun failed", e)
             Result.failure(e)
         }
     }

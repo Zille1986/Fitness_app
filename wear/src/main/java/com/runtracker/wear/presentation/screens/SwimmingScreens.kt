@@ -7,6 +7,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.AutoCenteringParams
@@ -29,6 +30,9 @@ fun SwimmingHomeScreen(
     var selectedPoolLength by remember { mutableIntStateOf(25) }
     var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
+    val config = LocalConfiguration.current
+    val horizontalPad = if (config.isScreenRound) 14.dp else 8.dp
+
     SwipeToDismissBox(
         state = swipeToDismissBoxState,
         onDismissed = {
@@ -41,7 +45,7 @@ fun SwimmingHomeScreen(
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 autoCentering = AutoCenteringParams(itemIndex = 0),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 26.dp),
+                contentPadding = PaddingValues(horizontal = horizontalPad, vertical = 26.dp),
                 flingBehavior = ScalingLazyColumnDefaults.snapFlingBehavior(state = listState)
             ) {
                 if (!showWorkouts) {
@@ -72,7 +76,7 @@ fun SwimmingHomeScreen(
                                         fontWeight = FontWeight.Bold, color = WearColors.Swimming)
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             colors = ChipDefaults.secondaryChipColors()
                         )
                     }
@@ -88,7 +92,7 @@ fun SwimmingHomeScreen(
                                         color = MaterialTheme.colors.onSurfaceVariant)
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             colors = ChipDefaults.primaryChipColors(backgroundColor = WearColors.Swimming)
                         )
                     }
@@ -104,7 +108,7 @@ fun SwimmingHomeScreen(
                                         color = MaterialTheme.colors.onSurfaceVariant)
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             colors = ChipDefaults.secondaryChipColors()
                         )
                     }
@@ -126,7 +130,7 @@ fun SwimmingHomeScreen(
                                         color = MaterialTheme.colors.onSurfaceVariant)
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             colors = ChipDefaults.chipColors(backgroundColor = WearColors.Swimming.copy(alpha = 0.3f))
                         )
                     }
@@ -142,7 +146,7 @@ fun SwimmingHomeScreen(
                                         color = MaterialTheme.colors.onSurfaceVariant)
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             colors = ChipDefaults.chipColors(backgroundColor = WearColors.Swimming.copy(alpha = 0.3f))
                         )
                     }
@@ -168,7 +172,7 @@ fun SwimmingHomeScreen(
                                             color = MaterialTheme.colors.onSurfaceVariant)
                                     }
                                 },
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 colors = ChipDefaults.secondaryChipColors()
                             )
                         }
@@ -178,31 +182,37 @@ fun SwimmingHomeScreen(
         }
     }
 
-    // Pool length picker dialog
+    // Pool length picker as full-screen scrollable list
     if (showPoolLengthPicker) {
         val poolLengths = listOf(15, 20, 25, 33, 50)
+        val pickerListState = rememberScalingLazyListState()
         androidx.compose.ui.window.Dialog(onDismissRequest = { showPoolLengthPicker = false }) {
-            Column(
-                modifier = Modifier
-                    .background(MaterialTheme.colors.surface,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-                    .padding(12.dp),
+            ScalingLazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = pickerListState,
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                autoCentering = AutoCenteringParams(itemIndex = 0),
+                contentPadding = PaddingValues(horizontal = horizontalPad, vertical = 26.dp),
+                flingBehavior = ScalingLazyColumnDefaults.snapFlingBehavior(state = pickerListState)
             ) {
-                Text("Pool Length", style = MaterialTheme.typography.title3,
-                    fontWeight = FontWeight.Bold, color = MaterialTheme.colors.primary)
+                item {
+                    Text("Pool Length", style = MaterialTheme.typography.title3,
+                        fontWeight = FontWeight.Bold, color = MaterialTheme.colors.primary,
+                        modifier = Modifier.padding(bottom = 4.dp))
+                }
                 poolLengths.forEach { length ->
-                    Chip(
-                        onClick = {
-                            selectedPoolLength = length
-                            showPoolLengthPicker = false
-                        },
-                        label = { Text("${length}m", fontWeight = FontWeight.Bold) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = if (length == selectedPoolLength) ChipDefaults.primaryChipColors()
-                        else ChipDefaults.secondaryChipColors()
-                    )
+                    item {
+                        Chip(
+                            onClick = {
+                                selectedPoolLength = length
+                                showPoolLengthPicker = false
+                            },
+                            label = { Text("${length}m", fontWeight = FontWeight.Bold) },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            colors = if (length == selectedPoolLength) ChipDefaults.primaryChipColors()
+                            else ChipDefaults.secondaryChipColors()
+                        )
+                    }
                 }
             }
         }

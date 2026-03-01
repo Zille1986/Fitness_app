@@ -2,7 +2,7 @@ package com.runtracker.app.di
 
 import com.runtracker.shared.data.db.CyclingTrainingPlanDao
 import com.runtracker.shared.data.db.CyclingWorkoutDao
-import com.runtracker.shared.data.db.RunTrackerDatabase
+import com.runtracker.shared.data.db.GoSteadyDatabase
 import com.runtracker.shared.data.repository.CyclingRepository
 import dagger.Module
 import dagger.Provides
@@ -16,13 +16,13 @@ object CyclingModule {
 
     @Provides
     @Singleton
-    fun provideCyclingWorkoutDao(database: RunTrackerDatabase): CyclingWorkoutDao {
+    fun provideCyclingWorkoutDao(database: GoSteadyDatabase): CyclingWorkoutDao {
         return database.cyclingWorkoutDao()
     }
 
     @Provides
     @Singleton
-    fun provideCyclingTrainingPlanDao(database: RunTrackerDatabase): CyclingTrainingPlanDao {
+    fun provideCyclingTrainingPlanDao(database: GoSteadyDatabase): CyclingTrainingPlanDao {
         return database.cyclingTrainingPlanDao()
     }
 

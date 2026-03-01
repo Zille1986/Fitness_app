@@ -43,6 +43,10 @@ object DataLayerPaths {
     const val KEY_LATITUDE = "latitude"
     const val KEY_LONGITUDE = "longitude"
 
+    // HIIT paths
+    const val HIIT_DATA_PATH = "/hiit_session"
+    const val KEY_HIIT_JSON = "hiit_json"
+
     // Asset-based transfer for large runs (route points exceed DataLayer limits)
     const val RUN_ROUTE_ASSET_KEY = "run_route_asset"
     const val KEY_RUN_META_JSON = "run_meta_json"  // Run without routePoints

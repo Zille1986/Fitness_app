@@ -52,7 +52,12 @@ class GymDashboardViewModel @Inject constructor(
 
         viewModelScope.launch {
             val weeklyStats = gymRepository.getWeeklyGymStats()
-            _uiState.update { it.copy(weeklyStats = weeklyStats, isLoading = false) }
+            val muscleVolume = gymRepository.getWeeklyMuscleGroupVolume()
+            _uiState.update { it.copy(
+                weeklyStats = weeklyStats,
+                muscleGroupVolume = muscleVolume,
+                isLoading = false
+            ) }
         }
 
         viewModelScope.launch {
@@ -114,6 +119,7 @@ data class GymDashboardUiState(
     val recentWorkouts: List<GymWorkout> = emptyList(),
     val templates: List<WorkoutTemplate> = emptyList(),
     val weeklyStats: GymWeeklyStats? = null,
+    val muscleGroupVolume: Map<MuscleGroup, Int> = emptyMap(),
     val activeWorkout: GymWorkout? = null,
     val isLoading: Boolean = true
 )

@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runtracker.shared.data.model.*
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,9 +115,11 @@ fun ActiveWorkoutScreen(
                                     exerciseIndex = exerciseIndex,
                                     exercisePB = uiState.exercisePBs[exercise.exerciseId],
                                     lastWorkout = uiState.exerciseLastWorkouts[exercise.exerciseId],
+                                    progressionSuggestion = uiState.exerciseSuggestions[exercise.exerciseId],
+                                    videoFileName = uiState.exerciseVideoFileNames[exercise.exerciseId],
                                     onAddSet = { viewModel.addSet(exerciseIndex) },
-                                    onRemoveSet = { setIndex -> 
-                                        viewModel.removeSet(exerciseIndex, setIndex) 
+                                    onRemoveSet = { setIndex ->
+                                        viewModel.removeSet(exerciseIndex, setIndex)
                                     },
                                     onUpdateSet = { setIndex, weight, reps ->
                                         viewModel.updateSet(exerciseIndex, setIndex, weight, reps)
@@ -233,6 +236,8 @@ fun ExerciseCard(
     exerciseIndex: Int,
     exercisePB: ExercisePB? = null,
     lastWorkout: ExerciseHistory? = null,
+    progressionSuggestion: ProgressionSuggestion? = null,
+    videoFileName: String? = null,
     onAddSet: () -> Unit,
     onRemoveSet: (Int) -> Unit,
     onUpdateSet: (Int, Double?, Int?) -> Unit,
@@ -240,6 +245,13 @@ fun ExerciseCard(
     onRemoveExercise: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    var showChart by remember { mutableStateOf(false) }
+    var showDemo by remember { mutableStateOf(false) }
+    var showPlateCalculator by remember { mutableStateOf(false) }
+    var plateCalculatorWeight by remember { mutableStateOf(0.0) }
+    val chartViewModel: ExerciseProgressChartViewModel = hiltViewModel(
+        key = "progress_${exercise.exerciseId}"
+    )
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -251,9 +263,29 @@ fun ExerciseCard(
                 Text(
                     text = exercise.exerciseName,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
                 )
-                
+
+                if (videoFileName != null) {
+                    IconButton(onClick = { showDemo = true }) {
+                        Icon(
+                            Icons.Default.PlayCircle,
+                            contentDescription = "Watch Demo",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                IconButton(onClick = { showChart = !showChart }) {
+                    Icon(
+                        Icons.Default.ShowChart,
+                        contentDescription = "Progress Chart",
+                        tint = if (showChart) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 Box {
                     IconButton(onClick = { showMenu = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Options")
@@ -275,13 +307,13 @@ fun ExerciseCard(
                     }
                 }
             }
-            
-            // PB and Last Workout Info
+
+            // PB, Last Workout, and 1RM Info
             if (exercisePB != null || lastWorkout != null) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Personal Best
                     exercisePB?.let { pb ->
@@ -309,7 +341,7 @@ fun ExerciseCard(
                             }
                         }
                     }
-                    
+
                     // Last Workout
                     lastWorkout?.let { last ->
                         Surface(
@@ -335,6 +367,63 @@ fun ExerciseCard(
                             }
                         }
                     }
+
+                    // 1RM Badge
+                    exercisePB?.let { pb ->
+                        if (pb.bestOneRepMax > 0) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.FitnessCenter,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "1RM: ${pb.bestOneRepMaxFormatted}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Progressive Overload Suggestion
+            progressionSuggestion?.let { suggestion ->
+                if (suggestion.suggestionType != SuggestionType.MAINTAIN || suggestion.confidence > 0.6f) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    ProgressionSuggestionChip(suggestion = suggestion)
+                }
+            }
+
+            // Progress Chart (expandable)
+            AnimatedVisibility(
+                visible = showChart,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    ExerciseProgressChart(
+                        exerciseId = exercise.exerciseId,
+                        exerciseName = exercise.exerciseName,
+                        viewModel = chartViewModel
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 }
             }
 
@@ -384,10 +473,15 @@ fun ExerciseCard(
                     setIndex = setIndex,
                     previousWeight = lastWorkout?.bestWeight,
                     previousReps = lastWorkout?.bestReps,
+                    oneRepMax = exercisePB?.bestOneRepMax,
                     onWeightChange = { weight -> onUpdateSet(setIndex, weight, null) },
                     onRepsChange = { reps -> onUpdateSet(setIndex, null, reps) },
                     onComplete = { onCompleteSet(setIndex) },
-                    onRemove = { onRemoveSet(setIndex) }
+                    onRemove = { onRemoveSet(setIndex) },
+                    onPlateCalculator = { weight ->
+                        plateCalculatorWeight = weight
+                        showPlateCalculator = true
+                    }
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -404,6 +498,23 @@ fun ExerciseCard(
             }
         }
     }
+
+    // Plate Calculator Dialog
+    if (showPlateCalculator) {
+        PlateCalculatorDialog(
+            initialWeight = plateCalculatorWeight,
+            onDismiss = { showPlateCalculator = false }
+        )
+    }
+
+    // Exercise Demo Video Dialog
+    if (showDemo && videoFileName != null) {
+        ExerciseDemoDialog(
+            exerciseName = exercise.exerciseName,
+            videoFileName = videoFileName,
+            onDismiss = { showDemo = false }
+        )
+    }
 }
 
 @Composable
@@ -412,10 +523,12 @@ fun SetRow(
     setIndex: Int,
     previousWeight: Double? = null,
     previousReps: Int? = null,
+    oneRepMax: Double? = null,
     onWeightChange: (Double) -> Unit,
     onRepsChange: (Int) -> Unit,
     onComplete: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onPlateCalculator: (Double) -> Unit = {}
 ) {
     var weightText by remember(set.weight) { mutableStateOf(if (set.weight > 0) set.weight.toString() else "") }
     var repsText by remember(set.reps) { mutableStateOf(if (set.reps > 0) set.reps.toString() else "") }
@@ -426,95 +539,211 @@ fun SetRow(
         Color.Transparent
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(backgroundColor)
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Set number
-        Box(
+    // Calculate 1RM percentage
+    val oneRmPercent = if (oneRepMax != null && oneRepMax > 0 && set.weight > 0) {
+        ((set.weight / oneRepMax) * 100).roundToInt()
+    } else null
+
+    Column {
+        Row(
             modifier = Modifier
-                .size(32.dp)
-                .background(
-                    if (set.isCompleted) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.surfaceVariant,
-                    CircleShape
-                ),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(backgroundColor)
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Set number
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(
+                        if (set.isCompleted) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "${setIndex + 1}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (set.isCompleted) MaterialTheme.colorScheme.onPrimary
+                           else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Previous workout data
             Text(
-                text = "${setIndex + 1}",
-                style = MaterialTheme.typography.labelMedium,
-                color = if (set.isCompleted) MaterialTheme.colorScheme.onPrimary
-                       else MaterialTheme.colorScheme.onSurfaceVariant
+                text = if (previousWeight != null && previousReps != null) {
+                    "${previousWeight}×${previousReps}"
+                } else {
+                    "-"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(80.dp),
+                textAlign = TextAlign.Center
             )
-        }
 
-        // Previous workout data
-        Text(
-            text = if (previousWeight != null && previousReps != null) {
-                "${previousWeight}×${previousReps}"
-            } else {
-                "-"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(80.dp),
-            textAlign = TextAlign.Center
-        )
+            // Weight input with plate calculator
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                OutlinedTextField(
+                    value = weightText,
+                    onValueChange = { value ->
+                        weightText = value
+                        value.toDoubleOrNull()?.let { onWeightChange(it) }
+                    },
+                    modifier = Modifier.width(70.dp),
+                    textStyle = LocalTextStyle.current.copy(
+                        textAlign = TextAlign.Center,
+                        fontSize = 14.sp
+                    ),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    enabled = !set.isCompleted
+                )
+                // 1RM % label under weight
+                if (oneRmPercent != null) {
+                    Text(
+                        text = "${oneRmPercent}% 1RM",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                        fontSize = 10.sp
+                    )
+                }
+            }
 
-        // Weight input
-        OutlinedTextField(
-            value = weightText,
-            onValueChange = { value ->
-                weightText = value
-                value.toDoubleOrNull()?.let { onWeightChange(it) }
-            },
-            modifier = Modifier.width(70.dp),
-            textStyle = LocalTextStyle.current.copy(
-                textAlign = TextAlign.Center,
-                fontSize = 14.sp
-            ),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            singleLine = true,
-            enabled = !set.isCompleted
-        )
-
-        // Reps input
-        OutlinedTextField(
-            value = repsText,
-            onValueChange = { value ->
-                repsText = value
-                value.toIntOrNull()?.let { onRepsChange(it) }
-            },
-            modifier = Modifier.width(60.dp),
-            textStyle = LocalTextStyle.current.copy(
-                textAlign = TextAlign.Center,
-                fontSize = 14.sp
-            ),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true,
-            enabled = !set.isCompleted
-        )
-
-        // Complete button
-        IconButton(
-            onClick = onComplete,
-            enabled = !set.isCompleted && weightText.isNotEmpty() && repsText.isNotEmpty()
-        ) {
-            Icon(
-                imageVector = if (set.isCompleted) Icons.Default.CheckCircle else Icons.Default.CheckCircleOutline,
-                contentDescription = "Complete set",
-                tint = if (set.isCompleted) MaterialTheme.colorScheme.primary
-                       else MaterialTheme.colorScheme.onSurfaceVariant
+            // Reps input
+            OutlinedTextField(
+                value = repsText,
+                onValueChange = { value ->
+                    repsText = value
+                    value.toIntOrNull()?.let { onRepsChange(it) }
+                },
+                modifier = Modifier.width(60.dp),
+                textStyle = LocalTextStyle.current.copy(
+                    textAlign = TextAlign.Center,
+                    fontSize = 14.sp
+                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                enabled = !set.isCompleted
             )
+
+            // Complete button + Plate calculator
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                IconButton(
+                    onClick = onComplete,
+                    enabled = !set.isCompleted && weightText.isNotEmpty() && repsText.isNotEmpty(),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (set.isCompleted) Icons.Default.CheckCircle else Icons.Default.CheckCircleOutline,
+                        contentDescription = "Complete set",
+                        tint = if (set.isCompleted) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                // Plate calculator icon
+                if (set.weight > 0 && !set.isCompleted) {
+                    IconButton(
+                        onClick = { onPlateCalculator(set.weight) },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Calculate,
+                            contentDescription = "Plate Calculator",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+            }
         }
     }
 }
+
+@Composable
+fun ProgressionSuggestionChip(
+    suggestion: ProgressionSuggestion,
+    modifier: Modifier = Modifier
+) {
+    val (backgroundColor, contentColor, icon, text) = when (suggestion.suggestionType) {
+        SuggestionType.INCREASE_WEIGHT -> {
+            val weight = if (suggestion.suggestedWeight == suggestion.suggestedWeight.toLong().toDouble()) {
+                "${suggestion.suggestedWeight.toLong()}kg"
+            } else {
+                "${"%.1f".format(suggestion.suggestedWeight)}kg"
+            }
+            Tuple4(
+                Color(0xFF4CAF50).copy(alpha = 0.12f),
+                Color(0xFF2E7D32),
+                Icons.Default.TrendingUp,
+                "Increase to $weight × ${suggestion.suggestedReps}"
+            )
+        }
+        SuggestionType.INCREASE_REPS -> Tuple4(
+            Color(0xFF4CAF50).copy(alpha = 0.12f),
+            Color(0xFF2E7D32),
+            Icons.Default.TrendingUp,
+            "Try ${suggestion.suggestedReps} reps this session"
+        )
+        SuggestionType.DELOAD -> Tuple4(
+            Color(0xFFFF9800).copy(alpha = 0.12f),
+            Color(0xFFE65100),
+            Icons.Default.TrendingDown,
+            "Deload: ${suggestion.suggestedWeight.toLong()}kg × ${suggestion.suggestedReps}"
+        )
+        SuggestionType.MAINTAIN -> Tuple4(
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurfaceVariant,
+            Icons.Default.TrendingFlat,
+            "Stay at current weight"
+        )
+        SuggestionType.TRY_NEW_VARIATION -> Tuple4(
+            Color(0xFF2196F3).copy(alpha = 0.12f),
+            Color(0xFF1565C0),
+            Icons.Default.Refresh,
+            "Try a new variation"
+        )
+    }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = backgroundColor,
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = contentColor,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = suggestion.reasoning,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = contentColor.copy(alpha = 0.7f),
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+private data class Tuple4<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 @Composable
 fun RestTimerBar(

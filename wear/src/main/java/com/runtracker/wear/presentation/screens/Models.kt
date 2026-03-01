@@ -76,6 +76,7 @@ data class SyncedCustomWorkout(
 object WearColors {
     val Swimming = Color(0xFF0288D1)
     val Cycling = Color(0xFFFF5722)
+    val HIIT = Color(0xFFFF6D00)
     val Music = Color(0xFF9C27B0)
     val Success = Color(0xFF4CAF50)
     val Danger = Color(0xFFE53935)

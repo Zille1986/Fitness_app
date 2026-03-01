@@ -1,11 +1,13 @@
-package com.runtracker.wear
+package com.runtracker.app
 
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import dagger.hilt.android.HiltAndroidApp
 
-class WearRunTrackerApplication : Application() {
+@HiltAndroidApp
+class GoSteadyApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
@@ -16,7 +18,7 @@ class WearRunTrackerApplication : Application() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val trackingChannel = NotificationChannel(
                 TRACKING_CHANNEL_ID,
-                "Run Tracking",
+                getString(R.string.notification_channel_tracking),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Shows notification while tracking a run"
@@ -29,6 +31,6 @@ class WearRunTrackerApplication : Application() {
     }
 
     companion object {
-        const val TRACKING_CHANNEL_ID = "wear_tracking_channel"
+        const val TRACKING_CHANNEL_ID = "tracking_channel"
     }
 }
