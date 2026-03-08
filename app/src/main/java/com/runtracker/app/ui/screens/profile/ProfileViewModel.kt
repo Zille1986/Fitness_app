@@ -1,7 +1,9 @@
 package com.runtracker.app.ui.screens.profile
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.runtracker.shared.data.model.DemoVideoModel
 import com.runtracker.shared.data.model.Gender
 import com.runtracker.shared.data.model.Units
 import com.runtracker.shared.data.model.UserProfile
@@ -13,14 +15,29 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val application: Application
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
+    private val prefs = application.getSharedPreferences("app_preferences", android.content.Context.MODE_PRIVATE)
+
     init {
         loadProfile()
+        loadDemoVideoModel()
+    }
+
+    private fun loadDemoVideoModel() {
+        val modelName = prefs.getString("demo_video_model", DemoVideoModel.MALE.name) ?: DemoVideoModel.MALE.name
+        val model = try { DemoVideoModel.valueOf(modelName) } catch (e: Exception) { DemoVideoModel.MALE }
+        _uiState.update { it.copy(demoVideoModel = model) }
+    }
+
+    fun updateDemoVideoModel(model: DemoVideoModel) {
+        _uiState.update { it.copy(demoVideoModel = model) }
+        prefs.edit().putString("demo_video_model", model.name).apply()
     }
 
     private fun loadProfile() {
@@ -132,6 +149,7 @@ data class ProfileUiState(
     val maxHeartRate: String = "",
     val weeklyGoalKm: String = "20",
     val preferredUnits: Units = Units.METRIC,
+    val demoVideoModel: DemoVideoModel = DemoVideoModel.MALE,
     val isStravaConnected: Boolean = false,
     val isLoading: Boolean = true,
     val isSaved: Boolean = false

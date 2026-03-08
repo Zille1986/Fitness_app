@@ -31,9 +31,12 @@ data class ActiveHIITWorkoutUiState(
     val isComplete: Boolean = false,
     val currentExerciseName: String = "Get Ready!",
     val currentExerciseDescription: String = "",
+    val currentExerciseVideoFileName: String? = null,
     val nextExerciseName: String? = null,
     val caloriesEstimate: Int = 0,
-    val savedSessionId: Long? = null
+    val savedSessionId: Long? = null,
+    val phaseStepIndex: Int = 0,
+    val phaseStepCount: Int = 0
 ) {
     val phaseProgress: Float
         get() = if (phaseDurationSeconds > 0) {
@@ -68,15 +71,19 @@ class ActiveHIITWorkoutViewModel @Inject constructor(
     init {
         val template = HIITExerciseLibrary.getTemplateById(templateId)
         if (template != null) {
+            val firstStep = template.warmupSteps.firstOrNull()
             _uiState.update {
                 it.copy(
                     template = template,
                     phase = HIITPhase.WARMUP,
                     remainingSeconds = template.warmupSec,
                     phaseDurationSeconds = template.warmupSec,
-                    currentExerciseName = "Warm Up",
-                    currentExerciseDescription = "Get your body ready",
-                    nextExerciseName = template.exercises.firstOrNull()?.exercise?.name
+                    currentExerciseName = firstStep?.name ?: "Warm Up",
+                    currentExerciseDescription = firstStep?.description ?: "Get your body ready",
+                    currentExerciseVideoFileName = firstStep?.videoFileName,
+                    nextExerciseName = template.exercises.firstOrNull()?.exercise?.name,
+                    phaseStepIndex = 0,
+                    phaseStepCount = template.warmupSteps.size
                 )
             }
             audioCueManager.playPhaseTone()
@@ -120,7 +127,37 @@ class ActiveHIITWorkoutViewModel @Inject constructor(
                                 .coerceAtLeast(it.caloriesEstimate)
                         )
                     }
+                    // Advance warmup/cooldown step based on elapsed time within the phase
+                    advancePhaseStepIfNeeded(newRemaining)
                 }
+            }
+        }
+    }
+
+    private fun advancePhaseStepIfNeeded(remainingSeconds: Int) {
+        val state = _uiState.value
+        val template = state.template ?: return
+        val steps = when (state.phase) {
+            HIITPhase.WARMUP -> template.warmupSteps
+            HIITPhase.COOLDOWN -> template.cooldownSteps
+            else -> return
+        }
+        if (steps.isEmpty()) return
+
+        val totalSec = state.phaseDurationSeconds
+        val elapsedSec = totalSec - remainingSeconds
+        val secPerStep = totalSec / steps.size
+        val newIndex = (elapsedSec / secPerStep).coerceIn(0, steps.size - 1)
+
+        if (newIndex != state.phaseStepIndex) {
+            val step = steps[newIndex]
+            _uiState.update {
+                it.copy(
+                    phaseStepIndex = newIndex,
+                    currentExerciseName = step.name,
+                    currentExerciseDescription = step.description,
+                    currentExerciseVideoFileName = step.videoFileName
+                )
             }
         }
     }
@@ -141,6 +178,7 @@ class ActiveHIITWorkoutViewModel @Inject constructor(
                         phaseDurationSeconds = firstExercise.durationOverrideSec ?: template.workDurationSec,
                         currentExerciseName = firstExercise.exercise.name,
                         currentExerciseDescription = firstExercise.exercise.description,
+                        currentExerciseVideoFileName = firstExercise.exercise.videoFileName,
                         nextExerciseName = if (template.exercises.size > 1) template.exercises[1].exercise.name else null
                     )
                 }
@@ -156,6 +194,7 @@ class ActiveHIITWorkoutViewModel @Inject constructor(
                             phaseDurationSeconds = template.restDurationSec,
                             currentExerciseName = "Rest",
                             currentExerciseDescription = "Catch your breath",
+                            currentExerciseVideoFileName = null,
                             nextExerciseName = template.exercises[nextExIndex].exercise.name
                         )
                     }
@@ -168,19 +207,24 @@ class ActiveHIITWorkoutViewModel @Inject constructor(
                             phaseDurationSeconds = template.restDurationSec,
                             currentExerciseName = "Rest",
                             currentExerciseDescription = "Round ${state.currentRound} complete!",
+                            currentExerciseVideoFileName = null,
                             nextExerciseName = template.exercises[0].exercise.name
                         )
                     }
                 } else {
                     // All rounds done — cooldown
+                    val firstCooldown = template.cooldownSteps.firstOrNull()
                     _uiState.update {
                         it.copy(
                             phase = HIITPhase.COOLDOWN,
                             remainingSeconds = template.cooldownSec,
                             phaseDurationSeconds = template.cooldownSec,
-                            currentExerciseName = "Cool Down",
-                            currentExerciseDescription = "Stretch and breathe",
-                            nextExerciseName = null
+                            currentExerciseName = firstCooldown?.name ?: "Cool Down",
+                            currentExerciseDescription = firstCooldown?.description ?: "Stretch and breathe",
+                            currentExerciseVideoFileName = firstCooldown?.videoFileName,
+                            nextExerciseName = null,
+                            phaseStepIndex = 0,
+                            phaseStepCount = template.cooldownSteps.size
                         )
                     }
                     audioCueManager.playPhaseTone()
@@ -207,6 +251,7 @@ class ActiveHIITWorkoutViewModel @Inject constructor(
                         phaseDurationSeconds = exercise.durationOverrideSec ?: template.workDurationSec,
                         currentExerciseName = exercise.exercise.name,
                         currentExerciseDescription = exercise.exercise.description,
+                        currentExerciseVideoFileName = exercise.exercise.videoFileName,
                         nextExerciseName = afterNext
                     )
                 }

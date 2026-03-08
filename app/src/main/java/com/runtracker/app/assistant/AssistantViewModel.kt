@@ -3,9 +3,15 @@ package com.runtracker.app.assistant
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.content
 import com.runtracker.app.BuildConfig
+import com.runtracker.shared.data.repository.BodyAnalysisRepository
 import com.runtracker.shared.data.repository.GymRepository
+import com.runtracker.shared.data.repository.HIITRepository
+import com.runtracker.shared.data.repository.NutritionRepository
 import com.runtracker.shared.data.repository.RunRepository
+import com.runtracker.shared.data.repository.TrainingPlanRepository
+import com.runtracker.shared.data.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,12 +31,17 @@ import javax.inject.Inject
 class AssistantViewModel @Inject constructor(
     private val gymRepository: GymRepository,
     private val runRepository: RunRepository,
+    private val hiitRepository: HIITRepository,
+    private val nutritionRepository: NutritionRepository,
+    private val userRepository: UserRepository,
+    private val bodyAnalysisRepository: BodyAnalysisRepository,
+    private val trainingPlanRepository: TrainingPlanRepository,
     private val eventBus: AssistantEventBus
 ) : ViewModel() {
-    
+
     private val _uiState = MutableStateFlow(AssistantUiState())
     val uiState: StateFlow<AssistantUiState> = _uiState.asStateFlow()
-    
+
     init {
         // Listen for events from other parts of the app
         viewModelScope.launch {
@@ -41,12 +52,15 @@ class AssistantViewModel @Inject constructor(
                 }
         }
     }
-    
+
     private val generativeModel = GenerativeModel(
         modelName = "gemini-2.5-flash",
         apiKey = BuildConfig.GEMINI_API_KEY
     )
-    
+
+    private var chat = generativeModel.startChat()
+    private var chatInitialized = false
+
     private val assistantName = "Buddy"
     
     fun showAssistant() {
@@ -204,59 +218,144 @@ class AssistantViewModel @Inject constructor(
         }
     }
     
-    private suspend fun generateResponse(question: String): String {
-        // Gather context about the user's fitness data
+    private suspend fun initializeChatIfNeeded() {
+        if (chatInitialized) return
+        chatInitialized = true
+
         val context = buildUserContext()
-        
-        val prompt = """
-            You are $assistantName, a friendly and encouraging fitness assistant in a workout tracking app.
-            You're like a supportive gym buddy - enthusiastic, knowledgeable, and motivating.
-            Keep responses concise (2-3 sentences max) and use occasional emojis.
-            
-            User's fitness context:
-            $context
-            
-            User's question: $question
-            
-            Respond helpfully and encouragingly. If they ask about what to do, give specific suggestions based on their data.
+        val systemPrompt = """
+You are $assistantName, an expert fitness coach and assistant built into a workout tracking app. You have deep knowledge of exercise science, nutrition, programming, injury prevention, and sports psychology.
+
+Your personality: Friendly, knowledgeable, and genuinely invested in the user's success. You're like having a personal trainer in your pocket — you give real, actionable advice, not just cheerful platitudes.
+
+Guidelines:
+- Give specific, actionable advice based on the user's actual data and goals
+- When asked about training, consider their current activity level, recent workouts, and goals
+- For nutrition questions, reference their actual intake data when available
+- Be honest — if something isn't going well (skipped workouts, poor nutrition), address it constructively
+- Adapt response length to the question: quick questions get short answers, complex topics (vacation workout plans, program design, plateaus) get detailed responses
+- Use your fitness expertise: periodization, progressive overload, recovery, mobility, etc.
+- When the user mentions travel, injuries, equipment limitations, or life changes, proactively suggest adapted routines
+- You can reference exercises from the app's library and suggest workouts they can do
+- Use emojis sparingly and naturally
+
+Here is the user's current fitness profile and recent activity:
+$context
         """.trimIndent()
-        
-        val response = generativeModel.generateContent(prompt)
+
+        // Send the system context as the first message in the chat
+        try {
+            chat = generativeModel.startChat(
+                history = listOf(
+                    content(role = "user") { text(systemPrompt) },
+                    content(role = "model") { text("Got it! I have your fitness profile and recent activity loaded. I'm ready to help with anything — workouts, nutrition, recovery, travel plans, you name it. What's on your mind?") }
+                )
+            )
+        } catch (e: Exception) {
+            Log.e("AssistantVM", "Failed to initialize chat", e)
+        }
+    }
+
+    private suspend fun generateResponse(question: String): String {
+        initializeChatIfNeeded()
+
+        val response = chat.sendMessage(question)
         return response.text ?: "I'm here to help! What would you like to know?"
     }
-    
+
     private suspend fun buildUserContext(): String {
         return buildString {
             try {
-                // Get weekly gym stats
+                // User profile
+                val profile = userRepository.getProfileOnce()
+                if (profile != null) {
+                    val profileParts = mutableListOf<String>()
+                    profile.name.takeIf { it.isNotBlank() }?.let { profileParts.add("Name: $it") }
+                    profile.age?.let { profileParts.add("Age: $it") }
+                    profile.weight?.let { profileParts.add("Weight: ${it}kg") }
+                    profile.height?.let { profileParts.add("Height: ${it}cm") }
+                    profile.gender?.let { profileParts.add("Gender: ${it.name}") }
+                    if (profileParts.isNotEmpty()) {
+                        appendLine("USER PROFILE: ${profileParts.joinToString(", ")}")
+                    }
+                }
+
+                // Active training plan
+                val activePlan = trainingPlanRepository.getActivePlanOnce()
+                if (activePlan != null) {
+                    appendLine("ACTIVE TRAINING PLAN: \"${activePlan.name}\" (${activePlan.weeklySchedule.size} scheduled workouts)")
+                    val todaysWorkout = trainingPlanRepository.getTodaysWorkout()
+                    if (todaysWorkout != null) {
+                        appendLine("Today's scheduled workout: ${todaysWorkout.description} (${todaysWorkout.workoutType})")
+                    }
+                }
+
+                // Gym activity
                 val gymStats = gymRepository.getWeeklyGymStats()
-                appendLine("This week: ${gymStats.workoutCount} gym workouts, ${gymStats.totalVolumeFormatted} total volume")
-                
-                // Get recent workouts
+                appendLine("GYM THIS WEEK: ${gymStats.workoutCount} workouts, ${gymStats.totalVolumeFormatted} total volume")
+
                 val recentWorkouts = gymRepository.getRecentWorkouts(5).first()
                 if (recentWorkouts.isNotEmpty()) {
                     val lastWorkout = recentWorkouts.first()
                     val daysSince = (System.currentTimeMillis() - lastWorkout.startTime) / (1000 * 60 * 60 * 24)
                     appendLine("Last gym workout: ${lastWorkout.name} (${daysSince.toInt()} days ago)")
+                    val workoutNames = recentWorkouts.take(5).joinToString(", ") { it.name }
+                    appendLine("Recent gym sessions: $workoutNames")
                 }
-                
-                // Get personal records
+
+                // Personal records
                 val prs = gymRepository.getPersonalRecordsSnapshot()
                 if (prs.isNotEmpty()) {
-                    appendLine("Recent PRs: ${prs.take(3).joinToString { it.bestWeight.toString() + "kg" }}")
+                    val prSummary = prs.take(5).joinToString(", ") { "${it.bestWeight}kg x ${it.bestReps} (1RM: ${String.format("%.0f", it.estimatedOneRepMax)}kg)" }
+                    appendLine("RECENT PERSONAL RECORDS: $prSummary")
                 }
-                
-                // Get run stats
+
+                // HIIT activity
+                val hiitStats = hiitRepository.getWeeklyStats()
+                if (hiitStats.sessionCount > 0) {
+                    appendLine("HIIT THIS WEEK: ${hiitStats.sessionCount} sessions, ${hiitStats.totalCalories} cal burned")
+                }
+
+                // Running
                 val runs = runRepository.getRecentRuns(5).first()
                 if (runs.isNotEmpty()) {
-                    appendLine("Recent runs: ${runs.size} in the last week")
+                    appendLine("RECENT RUNS: ${runs.size} runs")
+                    val lastRun = runs.first()
+                    val distanceKm = lastRun.distanceMeters / 1000.0
+                    appendLine("Last run: ${String.format("%.1f", distanceKm)}km")
                 }
-                
+
+                // Nutrition
+                val todayNutrition = nutritionRepository.getTodayNutritionOnce()
+                if (todayNutrition != null) {
+                    appendLine("TODAY'S NUTRITION: ${todayNutrition.consumedCalories}/${todayNutrition.targetCalories} cal, " +
+                            "${todayNutrition.consumedProteinGrams}g protein, " +
+                            "${todayNutrition.waterMl}ml water")
+                    val weeklyAvg = nutritionRepository.getWeeklyAverages()
+                    if (weeklyAvg.avgCalories > 0) {
+                        appendLine("Weekly avg: ${weeklyAvg.avgCalories} cal/day, ${weeklyAvg.avgProtein}g protein/day")
+                    }
+                }
+
+                // Body analysis
+                val latestScan = bodyAnalysisRepository.getLatestScan()
+                if (latestScan != null) {
+                    appendLine("LATEST BODY SCAN: Score ${latestScan.overallScore}/100, " +
+                            "Goal: ${latestScan.userGoal.displayName}")
+                    latestScan.estimatedBodyFatPercentage?.let {
+                        appendLine("Estimated body fat: ${String.format("%.1f", it)}%")
+                    }
+                    if (latestScan.focusZones.isNotEmpty()) {
+                        appendLine("Focus zones: ${latestScan.focusZones.joinToString(", ") { it.displayName }}")
+                    }
+                }
+
             } catch (e: Exception) {
+                Log.e("AssistantVM", "Error building context", e)
                 appendLine("User is actively tracking workouts")
             }
-            
-            appendLine("Current date: ${SimpleDateFormat("EEEE, MMMM d", Locale.getDefault()).format(Date())}")
+
+            appendLine("Current date: ${SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault()).format(Date())}")
         }
     }
     
@@ -270,18 +369,29 @@ class AssistantViewModel @Inject constructor(
     }
     
     private fun getContextualQuickReplies(lastQuestion: String): List<String> {
+        val q = lastQuestion.lowercase()
         return when {
-            lastQuestion.contains("today", ignoreCase = true) -> 
-                listOf("Start workout", "Show my schedule", "I need rest")
-            lastQuestion.contains("week", ignoreCase = true) -> 
-                listOf("Compare to last week", "Set new goal", "Thanks!")
-            lastQuestion.contains("progress", ignoreCase = true) -> 
-                listOf("Show charts", "What's my best lift?", "Thanks!")
-            else -> AssistantQuickReplies.motivation
+            q.contains("vacation") || q.contains("travel") || q.contains("holiday") ->
+                listOf("Bodyweight routine?", "How to stay on track?", "Thanks!")
+            q.contains("injury") || q.contains("pain") || q.contains("hurt") ->
+                listOf("What can I still do?", "Recovery tips", "Should I rest?")
+            q.contains("plateau") || q.contains("stuck") || q.contains("not progressing") ->
+                listOf("Change my program?", "Deload week?", "Check my nutrition")
+            q.contains("nutrition") || q.contains("diet") || q.contains("eat") || q.contains("food") ->
+                listOf("Meal ideas", "How much protein?", "Pre-workout meal?")
+            q.contains("today") || q.contains("workout") ->
+                listOf("What muscles to hit?", "I'm tired today", "Quick 20 min session?")
+            q.contains("week") || q.contains("schedule") || q.contains("plan") ->
+                listOf("Adjust my split?", "Add more cardio?", "Rest day advice")
+            q.contains("progress") || q.contains("improve") || q.contains("stronger") ->
+                listOf("Where am I weakest?", "Set a new goal", "Compare to last month")
+            else -> listOf("What should I do today?", "Review my week", "Nutrition check")
         }
     }
     
     fun clearChat() {
+        chatInitialized = false
+        chat = generativeModel.startChat()
         _uiState.update { it.copy(chatHistory = emptyList(), currentMessage = null) }
     }
 }

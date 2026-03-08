@@ -62,20 +62,20 @@ data class AssistantUiState(
  */
 object AssistantQuickReplies {
     val greetings = listOf(
-        "What should I do today?",
-        "How am I doing this week?",
-        "Show me my progress"
+        "What should I train today?",
+        "How's my week looking?",
+        "Help me plan my week"
     )
-    
+
     val afterWorkout = listOf(
-        "How did I do?",
-        "What's next?",
-        "Show my stats"
+        "How did that compare to last time?",
+        "What should I eat now?",
+        "When's my next session?"
     )
-    
+
     val motivation = listOf(
-        "Motivate me!",
-        "What's my streak?",
-        "Any tips?"
+        "I'm not feeling it today",
+        "Give me a quick workout",
+        "Any tips for my weak spots?"
     )
 }

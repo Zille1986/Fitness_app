@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,6 +7,12 @@ plugins {
     id("com.google.devtools.ksp")
     id("com.google.gms.google-services")
     id("com.google.firebase.crashlytics")
+}
+
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
 }
 
 android {
@@ -22,10 +30,10 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-        
+
         buildConfigField("String", "STRAVA_CLIENT_ID", "\"YOUR_STRAVA_CLIENT_ID\"")
         buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"YOUR_STRAVA_CLIENT_SECRET\"")
-        buildConfigField("String", "GEMINI_API_KEY", "\"AIzaSyC1Ymp7_VQNq2wpyoVUZF6zuuvD1ZSh2Ww\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"${localProperties.getProperty("GEMINI_API_KEY", "")}\"")
     }
 
     buildTypes {

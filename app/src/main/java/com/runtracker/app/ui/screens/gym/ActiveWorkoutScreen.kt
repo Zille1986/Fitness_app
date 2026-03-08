@@ -117,6 +117,7 @@ fun ActiveWorkoutScreen(
                                     lastWorkout = uiState.exerciseLastWorkouts[exercise.exerciseId],
                                     progressionSuggestion = uiState.exerciseSuggestions[exercise.exerciseId],
                                     videoFileName = uiState.exerciseVideoFileNames[exercise.exerciseId],
+                                    videoModelSubfolder = uiState.demoVideoSubfolder,
                                     onAddSet = { viewModel.addSet(exerciseIndex) },
                                     onRemoveSet = { setIndex ->
                                         viewModel.removeSet(exerciseIndex, setIndex)
@@ -238,6 +239,7 @@ fun ExerciseCard(
     lastWorkout: ExerciseHistory? = null,
     progressionSuggestion: ProgressionSuggestion? = null,
     videoFileName: String? = null,
+    videoModelSubfolder: String = "male",
     onAddSet: () -> Unit,
     onRemoveSet: (Int) -> Unit,
     onUpdateSet: (Int, Double?, Int?) -> Unit,
@@ -512,6 +514,7 @@ fun ExerciseCard(
         ExerciseDemoDialog(
             exerciseName = exercise.exerciseName,
             videoFileName = videoFileName,
+            videoModelSubfolder = videoModelSubfolder,
             onDismiss = { showDemo = false }
         )
     }

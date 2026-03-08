@@ -51,3 +51,13 @@ Thumbs.db
 
 # Log files
 *.log
+
+# Generated exercise videos (raw/uncompressed originals)
+/exercise-videos/
+
+# Scripts
+scripts/
+
+# Misc temp files
+logcat_*.txt
+nul

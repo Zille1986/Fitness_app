@@ -149,38 +149,68 @@ class WorkoutPreviewViewModel @Inject constructor(
             
             WorkoutType.TEMPO_RUN -> {
                 intervals.add(warmup)
-                
-                // Main tempo portion
-                val tempoDuration = ((workout.targetDurationMinutes ?: 40) - 20) * 60
-                intervals.add(Interval(
-                    type = IntervalType.WORK,
-                    durationSeconds = tempoDuration,
-                    targetPaceMinSecondsPerKm = workout.targetPaceMinSecondsPerKm,
-                    targetPaceMaxSecondsPerKm = workout.targetPaceMaxSecondsPerKm,
-                    targetHeartRateZone = workout.targetHeartRateZone ?: HeartRateZone.ZONE_4,
-                    targetHeartRateMin = workout.targetHeartRateMin,
-                    targetHeartRateMax = workout.targetHeartRateMax
-                ))
-                
+
+                // Main tempo portion — prefer distance over time
+                val targetDist = workout.targetDistanceMeters
+                if (targetDist != null && targetDist > 0) {
+                    // Subtract ~2km for warm-up/cool-down
+                    val mainDistanceMeters = (targetDist - 2000).coerceAtLeast(1000.0)
+                    intervals.add(Interval(
+                        type = IntervalType.WORK,
+                        distanceMeters = mainDistanceMeters,
+                        targetPaceMinSecondsPerKm = workout.targetPaceMinSecondsPerKm,
+                        targetPaceMaxSecondsPerKm = workout.targetPaceMaxSecondsPerKm,
+                        targetHeartRateZone = workout.targetHeartRateZone ?: HeartRateZone.ZONE_4,
+                        targetHeartRateMin = workout.targetHeartRateMin,
+                        targetHeartRateMax = workout.targetHeartRateMax
+                    ))
+                } else {
+                    val tempoDuration = ((workout.targetDurationMinutes ?: 40) - 20) * 60
+                    intervals.add(Interval(
+                        type = IntervalType.WORK,
+                        durationSeconds = tempoDuration,
+                        targetPaceMinSecondsPerKm = workout.targetPaceMinSecondsPerKm,
+                        targetPaceMaxSecondsPerKm = workout.targetPaceMaxSecondsPerKm,
+                        targetHeartRateZone = workout.targetHeartRateZone ?: HeartRateZone.ZONE_4,
+                        targetHeartRateMin = workout.targetHeartRateMin,
+                        targetHeartRateMax = workout.targetHeartRateMax
+                    ))
+                }
+
                 intervals.add(cooldown)
             }
-            
+
             else -> {
                 // Easy run, long run, etc. - simple structure
                 intervals.add(warmup.copy(durationSeconds = 300)) // 5 min warm-up
-                
-                // Main run
-                val mainDuration = ((workout.targetDurationMinutes ?: 30) - 10) * 60
-                intervals.add(Interval(
-                    type = IntervalType.WORK,
-                    durationSeconds = mainDuration,
-                    targetPaceMinSecondsPerKm = workout.targetPaceMinSecondsPerKm,
-                    targetPaceMaxSecondsPerKm = workout.targetPaceMaxSecondsPerKm,
-                    targetHeartRateZone = workout.targetHeartRateZone ?: HeartRateZone.ZONE_2,
-                    targetHeartRateMin = workout.targetHeartRateMin,
-                    targetHeartRateMax = workout.targetHeartRateMax
-                ))
-                
+
+                // Main run — prefer distance over time
+                val targetDist = workout.targetDistanceMeters
+                if (targetDist != null && targetDist > 0) {
+                    // Subtract ~1km for warm-up/cool-down
+                    val mainDistanceMeters = (targetDist - 1000).coerceAtLeast(1000.0)
+                    intervals.add(Interval(
+                        type = IntervalType.WORK,
+                        distanceMeters = mainDistanceMeters,
+                        targetPaceMinSecondsPerKm = workout.targetPaceMinSecondsPerKm,
+                        targetPaceMaxSecondsPerKm = workout.targetPaceMaxSecondsPerKm,
+                        targetHeartRateZone = workout.targetHeartRateZone ?: HeartRateZone.ZONE_2,
+                        targetHeartRateMin = workout.targetHeartRateMin,
+                        targetHeartRateMax = workout.targetHeartRateMax
+                    ))
+                } else {
+                    val mainDuration = ((workout.targetDurationMinutes ?: 30) - 10) * 60
+                    intervals.add(Interval(
+                        type = IntervalType.WORK,
+                        durationSeconds = mainDuration,
+                        targetPaceMinSecondsPerKm = workout.targetPaceMinSecondsPerKm,
+                        targetPaceMaxSecondsPerKm = workout.targetPaceMaxSecondsPerKm,
+                        targetHeartRateZone = workout.targetHeartRateZone ?: HeartRateZone.ZONE_2,
+                        targetHeartRateMin = workout.targetHeartRateMin,
+                        targetHeartRateMax = workout.targetHeartRateMax
+                    ))
+                }
+
                 intervals.add(cooldown.copy(durationSeconds = 300)) // 5 min cool-down
             }
         }

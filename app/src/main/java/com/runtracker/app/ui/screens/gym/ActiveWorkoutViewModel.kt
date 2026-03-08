@@ -1,5 +1,6 @@
 package com.runtracker.app.ui.screens.gym
 
+import android.app.Application
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -24,6 +25,7 @@ private const val TAG = "ActiveWorkoutViewModel"
 class ActiveWorkoutViewModel @Inject constructor(
     private val gymRepository: GymRepository,
     private val assistantEventBus: AssistantEventBus,
+    private val application: Application,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -38,8 +40,16 @@ class ActiveWorkoutViewModel @Inject constructor(
     private var restTimerJob: Job? = null
 
     init {
+        loadDemoVideoPreference()
         createWorkoutFromTemplate()
         startTimer()
+    }
+
+    private fun loadDemoVideoPreference() {
+        val prefs = application.getSharedPreferences("app_preferences", android.content.Context.MODE_PRIVATE)
+        val modelName = prefs.getString("demo_video_model", DemoVideoModel.MALE.name) ?: DemoVideoModel.MALE.name
+        val model = try { DemoVideoModel.valueOf(modelName) } catch (e: Exception) { DemoVideoModel.MALE }
+        _uiState.update { it.copy(demoVideoSubfolder = model.subfolder) }
     }
 
     private fun createWorkoutFromTemplate() {
@@ -500,7 +510,8 @@ data class ActiveWorkoutUiState(
     val exercisePBs: Map<Long, ExercisePB> = emptyMap(),
     val exerciseLastWorkouts: Map<Long, ExerciseHistory> = emptyMap(),
     val exerciseSuggestions: Map<Long, ProgressionSuggestion> = emptyMap(),
-    val exerciseVideoFileNames: Map<Long, String> = emptyMap()
+    val exerciseVideoFileNames: Map<Long, String> = emptyMap(),
+    val demoVideoSubfolder: String = "male"
 ) {
     val elapsedFormatted: String
         get() {

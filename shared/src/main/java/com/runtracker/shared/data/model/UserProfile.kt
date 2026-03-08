@@ -53,6 +53,13 @@ enum class Units {
     IMPERIAL
 }
 
+enum class DemoVideoModel {
+    MALE,
+    FEMALE;
+
+    val subfolder: String get() = name.lowercase()
+}
+
 data class HeartRateZoneRange(
     val zone: HeartRateZone,
     val minBpm: Int,

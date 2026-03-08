@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runtracker.shared.data.model.DemoVideoModel
 import com.runtracker.shared.data.model.Gender
 import com.runtracker.shared.data.model.Units
 
@@ -162,6 +163,11 @@ fun ProfileScreen(
             UnitsSelector(
                 selectedUnits = uiState.preferredUnits,
                 onUnitsSelected = { viewModel.updatePreferredUnits(it) }
+            )
+
+            DemoVideoModelSelector(
+                selectedModel = uiState.demoVideoModel,
+                onModelSelected = { viewModel.updateDemoVideoModel(it) }
             )
 
             // Strava Section
@@ -317,7 +323,7 @@ fun UnitsSelector(
                 text = "Units",
                 style = MaterialTheme.typography.bodyLarge
             )
-            
+
             Row {
                 FilterChip(
                     selected = selectedUnits == Units.METRIC,
@@ -329,6 +335,41 @@ fun UnitsSelector(
                     selected = selectedUnits == Units.IMPERIAL,
                     onClick = { onUnitsSelected(Units.IMPERIAL) },
                     label = { Text("Imperial") }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DemoVideoModelSelector(
+    selectedModel: DemoVideoModel,
+    onModelSelected: (DemoVideoModel) -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Exercise Demos",
+                style = MaterialTheme.typography.bodyLarge
+            )
+
+            Row {
+                FilterChip(
+                    selected = selectedModel == DemoVideoModel.MALE,
+                    onClick = { onModelSelected(DemoVideoModel.MALE) },
+                    label = { Text("Male") }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                FilterChip(
+                    selected = selectedModel == DemoVideoModel.FEMALE,
+                    onClick = { onModelSelected(DemoVideoModel.FEMALE) },
+                    label = { Text("Female") }
                 )
             }
         }

@@ -32,13 +32,14 @@ import androidx.media3.ui.AspectRatioFrameLayout
 fun ExerciseDemoDialog(
     exerciseName: String,
     videoFileName: String,
+    videoModelSubfolder: String = "male",
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
 
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
-            val assetUri = Uri.parse("asset:///exercise-videos/$videoFileName.mp4")
+            val assetUri = Uri.parse("asset:///exercise-videos/$videoModelSubfolder/$videoFileName.mp4")
             val dataSourceFactory = DataSource.Factory {
                 AssetDataSource(context)
             }
