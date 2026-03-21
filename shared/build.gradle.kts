@@ -18,23 +18,15 @@ kotlin {
         }
     }
 
-    // iOS targets
-    listOf(
-        iosX64(),
-        iosArm64(),
-        iosSimulatorArm64()
-    ).forEach {
-        it.binaries.framework {
-            baseName = "shared"
-            isStatic = true
-        }
-    }
+    // iOS targets — uncomment when building on macOS with Xcode installed
+    // listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach {
+    //     it.binaries.framework { baseName = "shared"; isStatic = true }
+    // }
 
     sourceSets {
         val commonMain by getting {
             dependencies {
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
             }
         }
         val commonTest by getting {
@@ -68,15 +60,8 @@ kotlin {
                 implementation("com.google.android.gms:play-services-wearable:18.1.0")
             }
         }
-        val iosX64Main by getting
-        val iosArm64Main by getting
-        val iosSimulatorArm64Main by getting
-        val iosMain by creating {
-            dependsOn(commonMain)
-            iosX64Main.dependsOn(this)
-            iosArm64Main.dependsOn(this)
-            iosSimulatorArm64Main.dependsOn(this)
-        }
+        // Uncomment when building on macOS:
+        // val iosMain by creating { dependsOn(commonMain) }
     }
 }
 
