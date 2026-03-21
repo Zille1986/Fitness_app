@@ -31,19 +31,40 @@ android {
             useSupportLibrary = true
         }
 
-        buildConfigField("String", "STRAVA_CLIENT_ID", "\"YOUR_STRAVA_CLIENT_ID\"")
-        buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"YOUR_STRAVA_CLIENT_SECRET\"")
+        buildConfigField("String", "STRAVA_CLIENT_ID", "\"${localProperties.getProperty("STRAVA_CLIENT_ID", "")}\"")
+        buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"${localProperties.getProperty("STRAVA_CLIENT_SECRET", "")}\"")
         buildConfigField("String", "GEMINI_API_KEY", "\"${localProperties.getProperty("GEMINI_API_KEY", "")}\"")
+        buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"${localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")}\"")
+
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystorePath = localProperties.getProperty("RELEASE_KEYSTORE_PATH", "")
+            if (keystorePath.isNotEmpty()) {
+                storeFile = file(keystorePath)
+                storePassword = localProperties.getProperty("RELEASE_KEYSTORE_PASSWORD", "")
+                keyAlias = localProperties.getProperty("RELEASE_KEY_ALIAS", "")
+                keyPassword = localProperties.getProperty("RELEASE_KEY_PASSWORD", "")
+            }
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            val releaseSigningConfig = signingConfigs.findByName("release")
+            signingConfig = if (releaseSigningConfig?.storeFile?.exists() == true) {
+                releaseSigningConfig
+            } else {
+                signingConfigs.getByName("debug") // fallback for local dev builds only
+            }
         }
     }
 
