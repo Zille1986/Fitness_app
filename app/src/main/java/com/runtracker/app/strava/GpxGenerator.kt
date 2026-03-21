@@ -13,9 +13,12 @@ object GpxGenerator {
         timeZone = TimeZone.getTimeZone("UTC")
     }
     
+    // Time gap threshold to detect pauses (30 seconds)
+    private const val PAUSE_GAP_THRESHOLD_MS = 30_000L
+
     fun generateGpx(run: Run): String {
         val sb = StringBuilder()
-        
+
         sb.appendLine("""<?xml version="1.0" encoding="UTF-8"?>""")
         sb.appendLine("""<gpx version="1.1" creator="RunTracker" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">""")
         sb.appendLine("  <metadata>")
@@ -25,16 +28,29 @@ object GpxGenerator {
         sb.appendLine("  <trk>")
         sb.appendLine("    <name>${generateRunName(run)}</name>")
         sb.appendLine("    <type>running</type>")
-        sb.appendLine("    <trkseg>")
-        
-        run.routePoints.forEach { point ->
-            sb.appendLine(generateTrackPoint(point))
+
+        // Split into separate <trkseg> segments at pauses so Strava
+        // doesn't connect pre-pause and post-resume points
+        if (run.routePoints.isNotEmpty()) {
+            sb.appendLine("    <trkseg>")
+            sb.appendLine(generateTrackPoint(run.routePoints.first()))
+
+            for (i in 1 until run.routePoints.size) {
+                val gap = run.routePoints[i].timestamp - run.routePoints[i - 1].timestamp
+                if (gap > PAUSE_GAP_THRESHOLD_MS) {
+                    // Large time gap = pause occurred, start new segment
+                    sb.appendLine("    </trkseg>")
+                    sb.appendLine("    <trkseg>")
+                }
+                sb.appendLine(generateTrackPoint(run.routePoints[i]))
+            }
+
+            sb.appendLine("    </trkseg>")
         }
-        
-        sb.appendLine("    </trkseg>")
+
         sb.appendLine("  </trk>")
         sb.appendLine("</gpx>")
-        
+
         return sb.toString()
     }
     
@@ -85,13 +101,22 @@ object GpxGenerator {
         sb.appendLine("  <trk>")
         sb.appendLine("    <name>${generateCyclingName(ride)}</name>")
         sb.appendLine("    <type>cycling</type>")
-        sb.appendLine("    <trkseg>")
-        
-        ride.routePoints.forEach { point ->
-            sb.appendLine(generateTrackPoint(point))
+
+        if (ride.routePoints.isNotEmpty()) {
+            sb.appendLine("    <trkseg>")
+            sb.appendLine(generateTrackPoint(ride.routePoints.first()))
+
+            for (i in 1 until ride.routePoints.size) {
+                val gap = ride.routePoints[i].timestamp - ride.routePoints[i - 1].timestamp
+                if (gap > PAUSE_GAP_THRESHOLD_MS) {
+                    sb.appendLine("    </trkseg>")
+                    sb.appendLine("    <trkseg>")
+                }
+                sb.appendLine(generateTrackPoint(ride.routePoints[i]))
+            }
+
+            sb.appendLine("    </trkseg>")
         }
-        
-        sb.appendLine("    </trkseg>")
         sb.appendLine("  </trk>")
         sb.appendLine("</gpx>")
         

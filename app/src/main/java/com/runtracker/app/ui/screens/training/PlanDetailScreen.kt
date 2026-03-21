@@ -122,39 +122,70 @@ class PlanDetailViewModel @Inject constructor(
     
     private fun generateIntervalsForWorkout(workout: ScheduledWorkout): List<Interval> {
         val intervals = mutableListOf<Interval>()
-        
-        // Calculate warm-up pace (slower than target)
+
+        // Calculate warm-up/cool-down pace (slower than target)
         val warmupPaceMin = (workout.targetPaceMaxSecondsPerKm ?: 390.0) + 30
         val warmupPaceMax = (workout.targetPaceMaxSecondsPerKm ?: 390.0) + 60
         val warmupHrMin = ((workout.targetHeartRateMin ?: 140) * 0.7).toInt()
         val warmupHrMax = ((workout.targetHeartRateMin ?: 140) * 0.85).toInt()
-        
-        // Warm-up: 10 minutes
-        val warmup = Interval(
-            type = IntervalType.WARMUP,
-            durationSeconds = 600,
-            targetPaceMinSecondsPerKm = warmupPaceMin,
-            targetPaceMaxSecondsPerKm = warmupPaceMax,
-            targetHeartRateZone = HeartRateZone.ZONE_1,
-            targetHeartRateMin = warmupHrMin,
-            targetHeartRateMax = warmupHrMax
-        )
-        
-        // Cool-down: 10 minutes
-        val cooldown = Interval(
-            type = IntervalType.COOLDOWN,
-            durationSeconds = 600,
-            targetPaceMinSecondsPerKm = warmupPaceMin,
-            targetPaceMaxSecondsPerKm = warmupPaceMax,
-            targetHeartRateZone = HeartRateZone.ZONE_1,
-            targetHeartRateMin = warmupHrMin,
-            targetHeartRateMax = warmupHrMax
-        )
-        
+
+        val targetDist = workout.targetDistanceMeters
+        val hasDistance = targetDist != null && targetDist > 0
+
+        // Distance-based: 10% warmup, 80% work, 10% cooldown
+        // Time-based fallback: 10 min warmup, remaining work, 10 min cooldown
+        fun makeWarmup(distanceFraction: Double = 0.10, fallbackSeconds: Int = 600): Interval {
+            return if (hasDistance) {
+                Interval(
+                    type = IntervalType.WARMUP,
+                    distanceMeters = targetDist!! * distanceFraction,
+                    targetPaceMinSecondsPerKm = warmupPaceMin,
+                    targetPaceMaxSecondsPerKm = warmupPaceMax,
+                    targetHeartRateZone = HeartRateZone.ZONE_1,
+                    targetHeartRateMin = warmupHrMin,
+                    targetHeartRateMax = warmupHrMax
+                )
+            } else {
+                Interval(
+                    type = IntervalType.WARMUP,
+                    durationSeconds = fallbackSeconds,
+                    targetPaceMinSecondsPerKm = warmupPaceMin,
+                    targetPaceMaxSecondsPerKm = warmupPaceMax,
+                    targetHeartRateZone = HeartRateZone.ZONE_1,
+                    targetHeartRateMin = warmupHrMin,
+                    targetHeartRateMax = warmupHrMax
+                )
+            }
+        }
+
+        fun makeCooldown(distanceFraction: Double = 0.10, fallbackSeconds: Int = 600): Interval {
+            return if (hasDistance) {
+                Interval(
+                    type = IntervalType.COOLDOWN,
+                    distanceMeters = targetDist!! * distanceFraction,
+                    targetPaceMinSecondsPerKm = warmupPaceMin,
+                    targetPaceMaxSecondsPerKm = warmupPaceMax,
+                    targetHeartRateZone = HeartRateZone.ZONE_1,
+                    targetHeartRateMin = warmupHrMin,
+                    targetHeartRateMax = warmupHrMax
+                )
+            } else {
+                Interval(
+                    type = IntervalType.COOLDOWN,
+                    durationSeconds = fallbackSeconds,
+                    targetPaceMinSecondsPerKm = warmupPaceMin,
+                    targetPaceMaxSecondsPerKm = warmupPaceMax,
+                    targetHeartRateZone = HeartRateZone.ZONE_1,
+                    targetHeartRateMin = warmupHrMin,
+                    targetHeartRateMax = warmupHrMax
+                )
+            }
+        }
+
         when (workout.workoutType) {
             WorkoutType.INTERVAL_TRAINING -> {
-                intervals.add(warmup)
-                
+                intervals.add(makeWarmup())
+
                 // 6x800m with 400m recovery
                 repeat(6) { index ->
                     intervals.add(Interval(
@@ -178,45 +209,69 @@ class PlanDetailViewModel @Inject constructor(
                         ))
                     }
                 }
-                
-                intervals.add(cooldown)
+
+                intervals.add(makeCooldown())
             }
-            
+
             WorkoutType.TEMPO_RUN -> {
-                intervals.add(warmup)
-                
-                val tempoDuration = ((workout.targetDurationMinutes ?: 40) - 20) * 60
-                intervals.add(Interval(
-                    type = IntervalType.WORK,
-                    durationSeconds = tempoDuration,
-                    targetPaceMinSecondsPerKm = workout.targetPaceMinSecondsPerKm,
-                    targetPaceMaxSecondsPerKm = workout.targetPaceMaxSecondsPerKm,
-                    targetHeartRateZone = workout.targetHeartRateZone ?: HeartRateZone.ZONE_4,
-                    targetHeartRateMin = workout.targetHeartRateMin,
-                    targetHeartRateMax = workout.targetHeartRateMax
-                ))
-                
-                intervals.add(cooldown)
+                intervals.add(makeWarmup())
+
+                if (hasDistance) {
+                    intervals.add(Interval(
+                        type = IntervalType.WORK,
+                        distanceMeters = targetDist!! * 0.80,
+                        targetPaceMinSecondsPerKm = workout.targetPaceMinSecondsPerKm,
+                        targetPaceMaxSecondsPerKm = workout.targetPaceMaxSecondsPerKm,
+                        targetHeartRateZone = workout.targetHeartRateZone ?: HeartRateZone.ZONE_4,
+                        targetHeartRateMin = workout.targetHeartRateMin,
+                        targetHeartRateMax = workout.targetHeartRateMax
+                    ))
+                } else {
+                    val tempoDuration = ((workout.targetDurationMinutes ?: 40) - 20) * 60
+                    intervals.add(Interval(
+                        type = IntervalType.WORK,
+                        durationSeconds = tempoDuration,
+                        targetPaceMinSecondsPerKm = workout.targetPaceMinSecondsPerKm,
+                        targetPaceMaxSecondsPerKm = workout.targetPaceMaxSecondsPerKm,
+                        targetHeartRateZone = workout.targetHeartRateZone ?: HeartRateZone.ZONE_4,
+                        targetHeartRateMin = workout.targetHeartRateMin,
+                        targetHeartRateMax = workout.targetHeartRateMax
+                    ))
+                }
+
+                intervals.add(makeCooldown())
             }
-            
+
             else -> {
-                intervals.add(warmup.copy(durationSeconds = 300))
-                
-                val mainDuration = ((workout.targetDurationMinutes ?: 30) - 10) * 60
-                intervals.add(Interval(
-                    type = IntervalType.WORK,
-                    durationSeconds = mainDuration,
-                    targetPaceMinSecondsPerKm = workout.targetPaceMinSecondsPerKm,
-                    targetPaceMaxSecondsPerKm = workout.targetPaceMaxSecondsPerKm,
-                    targetHeartRateZone = workout.targetHeartRateZone ?: HeartRateZone.ZONE_2,
-                    targetHeartRateMin = workout.targetHeartRateMin,
-                    targetHeartRateMax = workout.targetHeartRateMax
-                ))
-                
-                intervals.add(cooldown.copy(durationSeconds = 300))
+                intervals.add(makeWarmup())
+
+                if (hasDistance) {
+                    intervals.add(Interval(
+                        type = IntervalType.WORK,
+                        distanceMeters = targetDist!! * 0.80,
+                        targetPaceMinSecondsPerKm = workout.targetPaceMinSecondsPerKm,
+                        targetPaceMaxSecondsPerKm = workout.targetPaceMaxSecondsPerKm,
+                        targetHeartRateZone = workout.targetHeartRateZone ?: HeartRateZone.ZONE_2,
+                        targetHeartRateMin = workout.targetHeartRateMin,
+                        targetHeartRateMax = workout.targetHeartRateMax
+                    ))
+                } else {
+                    val mainDuration = ((workout.targetDurationMinutes ?: 30) - 10) * 60
+                    intervals.add(Interval(
+                        type = IntervalType.WORK,
+                        durationSeconds = mainDuration,
+                        targetPaceMinSecondsPerKm = workout.targetPaceMinSecondsPerKm,
+                        targetPaceMaxSecondsPerKm = workout.targetPaceMaxSecondsPerKm,
+                        targetHeartRateZone = workout.targetHeartRateZone ?: HeartRateZone.ZONE_2,
+                        targetHeartRateMin = workout.targetHeartRateMin,
+                        targetHeartRateMax = workout.targetHeartRateMax
+                    ))
+                }
+
+                intervals.add(makeCooldown())
             }
         }
-        
+
         return intervals
     }
     
