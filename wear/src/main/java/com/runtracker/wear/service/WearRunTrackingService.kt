@@ -60,6 +60,8 @@ class WearRunTrackingService : Service() {
     private var startTime: Long = 0
     private var timerJob: Job? = null
     private var swimPoolLengthMeters: Int = 25
+    private var savedSwimType: String? = null
+    private var swimManualDistanceMode: Boolean = false
     private var totalPausedMillis: Long = 0
     private var pauseStartTime: Long = 0
 
@@ -163,20 +165,39 @@ class WearRunTrackingService : Service() {
                 val capabilities = exerciseClient.getCapabilitiesAsync().await()
                 
                 // Try to use the specific exercise type, fall back to RUNNING if not supported
+                val pendingSwimType = WorkoutHolder.pendingSwimType
                 val preferredExerciseType = when (activityType) {
-                    "SWIMMING" -> ExerciseType.SWIMMING_POOL
+                    "SWIMMING" -> {
+                        if (pendingSwimType in listOf("OCEAN", "LAKE", "OPEN_WATER")) {
+                            ExerciseType.SWIMMING_OPEN_WATER
+                        } else {
+                            ExerciseType.SWIMMING_POOL
+                        }
+                    }
                     "CYCLING" -> ExerciseType.BIKING
                     else -> ExerciseType.RUNNING
                 }
                 
-                val exerciseType = if (capabilities.supportedExerciseTypes.contains(preferredExerciseType)) {
-                    preferredExerciseType
+                val exerciseType: ExerciseType
+                val swimFallbackToManual: Boolean
+
+                if (capabilities.supportedExerciseTypes.contains(preferredExerciseType)) {
+                    exerciseType = preferredExerciseType
+                    swimFallbackToManual = false
+                } else if (activityType == "SWIMMING") {
+                    // SWIMMING_POOL not supported on this watch — use RUNNING as the
+                    // Health Services exercise type (for HR tracking), but we'll track
+                    // distance manually via accelerometer instead of relying on
+                    // Health Services DISTANCE_TOTAL which would use GPS (useless underwater).
+                    android.util.Log.w("WearTracking", "$preferredExerciseType not supported — using RUNNING for HR, manual distance tracking")
+                    exerciseType = ExerciseType.RUNNING
+                    swimFallbackToManual = true
                 } else {
-                    // Fall back to RUNNING which is always supported
                     android.util.Log.w("WearTracking", "Exercise type $preferredExerciseType not supported, using RUNNING")
-                    ExerciseType.RUNNING
+                    exerciseType = ExerciseType.RUNNING
+                    swimFallbackToManual = false
                 }
-                
+
                 val activityCapabilities = capabilities.getExerciseTypeCapabilities(exerciseType)
 
                 val dataTypes = mutableSetOf<DataType<*, *>>()
@@ -197,7 +218,7 @@ class WearRunTrackingService : Service() {
                 // Capture all pending data BEFORE clearing
                 val pendingWorkout = WorkoutHolder.pendingWorkout
                 val pendingIntervals = WorkoutHolder.pendingIntervals
-                val pendingSwimType = WorkoutHolder.pendingSwimType
+                // pendingSwimType already captured above
                 val pendingCyclingType = WorkoutHolder.pendingCyclingType
                 val pendingPoolLength = WorkoutHolder.pendingPoolLength ?: 25
                 val targetHrMin = WorkoutHolder.pendingTargetHrMin
@@ -205,8 +226,10 @@ class WearRunTrackingService : Service() {
                 val targetHrZone = WorkoutHolder.pendingTargetHrZone
                 val workoutDuration = WorkoutHolder.pendingWorkoutDuration
                 
-                // Store pool length for distance calculation
+                // Store pool length and swim type for later use when saving
                 swimPoolLengthMeters = pendingPoolLength
+                savedSwimType = pendingSwimType
+                swimManualDistanceMode = swimFallbackToManual
 
                 // Clear pending data atomically after capture
                 WorkoutHolder.clearAll()
@@ -295,6 +318,24 @@ class WearRunTrackingService : Service() {
         }
     }
 
+    /**
+     * Adds one pool lap worth of distance. Used as a fallback when the watch
+     * doesn't natively support SWIMMING_POOL exercise type, or as a manual
+     * correction alongside auto-detection.
+     */
+    fun addSwimLap() {
+        if (!_trackingState.value.isTracking) return
+        val lapDist = swimPoolLengthMeters.coerceAtLeast(1).toDouble()
+        _trackingState.value = _trackingState.value.copy(
+            distanceMeters = _trackingState.value.distanceMeters + lapDist
+        )
+        // Vibrate to confirm
+        try {
+            val vibrator = getSystemService(android.os.Vibrator::class.java)
+            vibrator?.vibrate(android.os.VibrationEffect.createOneShot(50, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+        } catch (_: Exception) {}
+    }
+
     fun pauseTracking() {
         if (!_trackingState.value.isTracking || _trackingState.value.isPaused) return
 
@@ -361,19 +402,29 @@ class WearRunTrackingService : Service() {
                     "SWIMMING" -> {
                         val pacePerHundred = if (distance > 0) (duration / 1000.0) / (distance / 100.0) else 0.0
                         val calories = RunCalculator.calculateCalories(distance, duration, null, state.heartRate)
+                        val isOpenWater = savedSwimType in listOf("OCEAN", "LAKE", "OPEN_WATER", "RIVER")
                         val poolLen = swimPoolLengthMeters.coerceAtLeast(1)
-                        val laps = (distance / poolLen).toInt()
+                        val laps = if (isOpenWater) 0 else (distance / poolLen).toInt()
                         val resolvedPoolLength = when (swimPoolLengthMeters) {
                             50 -> PoolLength.LONG_COURSE_METERS
                             23 -> PoolLength.SHORT_COURSE_YARDS
                             else -> PoolLength.SHORT_COURSE_METERS
                         }
 
+                        // Resolve swim type from what was set at start
+                        val resolvedSwimType = when (savedSwimType) {
+                            "OCEAN" -> SwimType.OCEAN
+                            "LAKE" -> SwimType.LAKE
+                            "RIVER" -> SwimType.RIVER
+                            "OPEN_WATER" -> SwimType.OCEAN
+                            else -> SwimType.POOL
+                        }
+
                         val completedSwim = SwimmingWorkout(
                             startTime = startTime,
                             endTime = endTime,
-                            swimType = SwimType.POOL,
-                            poolLength = resolvedPoolLength,
+                            swimType = resolvedSwimType,
+                            poolLength = if (resolvedSwimType == SwimType.POOL) resolvedPoolLength else null,
                             distanceMeters = distance,
                             durationMillis = duration,
                             laps = laps,
@@ -480,14 +531,24 @@ class WearRunTrackingService : Service() {
             }
             
             // Get distance (cumulative)
-            val distanceData: CumulativeDataPoint<Double>? = latestMetrics.getData(DataType.DISTANCE_TOTAL)
-            if (distanceData != null && distanceData.total > 0) {
-                distance = distanceData.total
-            }
+            // When in swim fallback mode (SWIMMING_POOL not supported, running as
+            // exercise type for HR), ignore DISTANCE_TOTAL — it would be GPS-based
+            // running distance which is 0 underwater. Distance is tracked via the
+            // watch tracking screen's manual lap button instead.
+            if (!swimManualDistanceMode) {
+                val distanceData: CumulativeDataPoint<Double>? = latestMetrics.getData(DataType.DISTANCE_TOTAL)
+                if (distanceData != null && distanceData.total > 0) {
+                    distance = distanceData.total
+                }
 
-            // For pool swimming, Health Services calculates DISTANCE_TOTAL using the
-            // pool length set via setSwimmingPoolLengthMeters() and accelerometer-based
-            // stroke/turn detection — no need for separate SWIM_LAP_COUNT handling.
+                // Log distance updates for swim debugging
+                if (_trackingState.value.activityType == "SWIMMING" && distanceData != null) {
+                    android.util.Log.d("WearSwimTracking", "Distance update: ${distanceData.total}m (pool=$swimPoolLengthMeters, type=$savedSwimType)")
+                }
+            } else {
+                // In manual mode, distance comes from UI lap counting — don't overwrite
+                android.util.Log.d("WearSwimTracking", "Manual distance mode — ignoring Health Services distance (current=${distance}m)")
+            }
             
             // Get speed for pace calculation
             val speedData = latestMetrics.getData(DataType.SPEED)

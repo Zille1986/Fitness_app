@@ -2,6 +2,8 @@ package com.runtracker.app.ui.screens.running
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.runtracker.shared.data.model.Run
+import com.runtracker.shared.data.model.RunSource
 import com.runtracker.shared.data.repository.RunRepository
 import com.runtracker.shared.data.repository.TrainingPlanRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -133,6 +135,29 @@ class RunningDashboardViewModel @Inject constructor(
 
     fun refresh() {
         loadData()
+    }
+
+    fun saveManualRun(distanceMeters: Double, durationMillis: Long, notes: String?) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val paceSecondsPerKm = if (distanceMeters > 0) {
+                (durationMillis / 1000.0) / (distanceMeters / 1000.0)
+            } else 0.0
+
+            val run = Run(
+                startTime = now - durationMillis,
+                endTime = now,
+                distanceMeters = distanceMeters,
+                durationMillis = durationMillis,
+                avgPaceSecondsPerKm = paceSecondsPerKm,
+                maxPaceSecondsPerKm = paceSecondsPerKm,
+                notes = notes,
+                source = RunSource.MANUAL,
+                isCompleted = true
+            )
+            runRepository.insertRun(run)
+            loadData()
+        }
     }
 }
 

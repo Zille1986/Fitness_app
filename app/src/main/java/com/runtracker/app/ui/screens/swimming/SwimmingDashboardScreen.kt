@@ -72,6 +72,33 @@ class SwimmingDashboardViewModel @Inject constructor(
     fun refresh() {
         loadData()
     }
+
+    fun saveManualSwim(distanceMeters: Double, durationMillis: Long, notes: String?) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val pacePer100m = if (distanceMeters > 0) {
+                (durationMillis / 1000.0) / (distanceMeters / 100.0)
+            } else 0.0
+
+            val workout = SwimmingWorkout(
+                startTime = now - durationMillis,
+                endTime = now,
+                swimType = SwimType.POOL,
+                distanceMeters = distanceMeters,
+                durationMillis = durationMillis,
+                laps = 0,
+                avgPaceSecondsPer100m = pacePer100m,
+                bestPaceSecondsPer100m = pacePer100m,
+                caloriesBurned = 0,
+                strokeType = StrokeType.FREESTYLE,
+                notes = notes,
+                source = SwimSource.MANUAL,
+                isCompleted = true
+            )
+            swimmingRepository.insertWorkout(workout)
+            loadData()
+        }
+    }
 }
 
 data class SwimmingDashboardUiState(
@@ -92,21 +119,42 @@ fun SwimmingDashboardScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showSwimTypeDialog by remember { mutableStateOf(false) }
     var showPoolLengthDialog by remember { mutableStateOf(false) }
+    var showManualDialog by remember { mutableStateOf(false) }
+
+    if (showManualDialog) {
+        com.runtracker.app.ui.components.ManualWorkoutDialog(
+            workoutType = com.runtracker.app.ui.components.ManualWorkoutType.SWIM,
+            onDismiss = { showManualDialog = false },
+            onSave = { data ->
+                viewModel.saveManualSwim(data.distanceMeters, data.durationMillis, data.notes.ifBlank { null })
+                showManualDialog = false
+            }
+        )
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Text(
                         "Swimming",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
-                    ) 
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
-                )
+                ),
+                actions = {
+                    IconButton(onClick = { showManualDialog = true }) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Log swim manually",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             )
         },
         floatingActionButton = {
@@ -126,6 +174,15 @@ fun SwimmingDashboardScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Hero banner
+            item {
+                com.runtracker.app.ui.components.DashboardHeroBanner(
+                    title = "Swimming",
+                    subtitle = "Pool and open water sessions",
+                    imageUrl = com.runtracker.app.ui.components.SportImages.SWIMMING
+                )
+            }
+
             // Next Workout Card
             item {
                 NextSwimWorkoutCard(

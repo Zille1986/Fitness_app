@@ -26,6 +26,7 @@ fun WearGoSteadyApp(
     onPauseRun: () -> Unit,
     onResumeRun: () -> Unit,
     onStopRun: () -> Unit,
+    onAddSwimLap: () -> Unit = {},
     onClearPendingWorkout: () -> Unit,
     onHIITComplete: (String) -> Unit = {} // JSON session data to sync to phone
 ) {
@@ -158,7 +159,8 @@ fun WearGoSteadyApp(
                 isAmbient = isAmbient,
                 onPause = onPauseRun,
                 onResume = onResumeRun,
-                onStop = onStopRun
+                onStop = onStopRun,
+                onAddSwimLap = onAddSwimLap
             )
         }
 

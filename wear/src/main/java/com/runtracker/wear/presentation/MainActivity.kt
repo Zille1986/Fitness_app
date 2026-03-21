@@ -123,6 +123,7 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
                     onPauseRun = { pauseRun() },
                     onResumeRun = { resumeRun() },
                     onStopRun = { stopRun() },
+                    onAddSwimLap = { addSwimLap() },
                     onClearPendingWorkout = {
                         pendingWorkout.value = null
                         WorkoutHolder.pendingWorkout = null
@@ -284,7 +285,8 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
     
     private fun startWorkoutRun(workoutType: WorkoutType) {
         // Generate intervals for the selected workout type and store in WorkoutHolder
-        val intervals = generateIntervalsForWorkoutType(workoutType)
+        val targetDist = WorkoutHolder.pendingWorkout?.targetDistanceMeters
+        val intervals = generateIntervalsForWorkoutType(workoutType, targetDist)
         WorkoutHolder.pendingIntervals = intervals
         WorkoutHolder.pendingWorkout = null
         
@@ -383,9 +385,12 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
         return HR_ZONE_CACHE[zone] ?: Pair(100, 150)
     }
     
-    private fun generateIntervalsForWorkoutType(workoutType: WorkoutType): List<com.runtracker.shared.data.model.Interval> {
+    private fun generateIntervalsForWorkoutType(
+        workoutType: WorkoutType,
+        targetDistanceMeters: Double? = null
+    ): List<com.runtracker.shared.data.model.Interval> {
         val intervals = mutableListOf<com.runtracker.shared.data.model.Interval>()
-        
+
         // Default paces (will be overridden by user's actual pace when running)
         val warmupPaceMin = 420.0 // 7:00/km
         val warmupPaceMax = 480.0 // 8:00/km
@@ -395,72 +400,140 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
         val tempoPaceMax = 330.0 // 5:30/km
         val intervalPaceMin = 240.0 // 4:00/km
         val intervalPaceMax = 270.0 // 4:30/km
-        
-        val warmup = com.runtracker.shared.data.model.Interval(
-            type = com.runtracker.shared.data.model.IntervalType.WARMUP,
-            durationSeconds = 600,
-            targetPaceMinSecondsPerKm = warmupPaceMin,
-            targetPaceMaxSecondsPerKm = warmupPaceMax,
-            targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_1,
-            targetHeartRateMin = 100,
-            targetHeartRateMax = 130
-        )
-        
-        val cooldown = com.runtracker.shared.data.model.Interval(
-            type = com.runtracker.shared.data.model.IntervalType.COOLDOWN,
-            durationSeconds = 600,
-            targetPaceMinSecondsPerKm = warmupPaceMin,
-            targetPaceMaxSecondsPerKm = warmupPaceMax,
-            targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_1,
-            targetHeartRateMin = 100,
-            targetHeartRateMax = 130
-        )
-        
+
+        val hasDistance = targetDistanceMeters != null && targetDistanceMeters > 0
+
+        // Distance-based: 10% warmup, 80% work, 10% cooldown
+        // Time-based fallback when no distance target
+        fun makeWarmup(fallbackSeconds: Int = 600): com.runtracker.shared.data.model.Interval {
+            return if (hasDistance) {
+                com.runtracker.shared.data.model.Interval(
+                    type = com.runtracker.shared.data.model.IntervalType.WARMUP,
+                    distanceMeters = targetDistanceMeters!! * 0.10,
+                    targetPaceMinSecondsPerKm = warmupPaceMin,
+                    targetPaceMaxSecondsPerKm = warmupPaceMax,
+                    targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_1,
+                    targetHeartRateMin = 100,
+                    targetHeartRateMax = 130
+                )
+            } else {
+                com.runtracker.shared.data.model.Interval(
+                    type = com.runtracker.shared.data.model.IntervalType.WARMUP,
+                    durationSeconds = fallbackSeconds,
+                    targetPaceMinSecondsPerKm = warmupPaceMin,
+                    targetPaceMaxSecondsPerKm = warmupPaceMax,
+                    targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_1,
+                    targetHeartRateMin = 100,
+                    targetHeartRateMax = 130
+                )
+            }
+        }
+
+        fun makeCooldown(fallbackSeconds: Int = 600): com.runtracker.shared.data.model.Interval {
+            return if (hasDistance) {
+                com.runtracker.shared.data.model.Interval(
+                    type = com.runtracker.shared.data.model.IntervalType.COOLDOWN,
+                    distanceMeters = targetDistanceMeters!! * 0.10,
+                    targetPaceMinSecondsPerKm = warmupPaceMin,
+                    targetPaceMaxSecondsPerKm = warmupPaceMax,
+                    targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_1,
+                    targetHeartRateMin = 100,
+                    targetHeartRateMax = 130
+                )
+            } else {
+                com.runtracker.shared.data.model.Interval(
+                    type = com.runtracker.shared.data.model.IntervalType.COOLDOWN,
+                    durationSeconds = fallbackSeconds,
+                    targetPaceMinSecondsPerKm = warmupPaceMin,
+                    targetPaceMaxSecondsPerKm = warmupPaceMax,
+                    targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_1,
+                    targetHeartRateMin = 100,
+                    targetHeartRateMax = 130
+                )
+            }
+        }
+
         when (workoutType) {
             WorkoutType.EASY_RUN -> {
-                intervals.add(warmup.copy(durationSeconds = 300))
-                intervals.add(com.runtracker.shared.data.model.Interval(
-                    type = com.runtracker.shared.data.model.IntervalType.WORK,
-                    durationSeconds = 1500, // 25 min
-                    targetPaceMinSecondsPerKm = easyPaceMin,
-                    targetPaceMaxSecondsPerKm = easyPaceMax,
-                    targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_2,
-                    targetHeartRateMin = 130,
-                    targetHeartRateMax = 150
-                ))
-                intervals.add(cooldown.copy(durationSeconds = 300))
+                intervals.add(makeWarmup(fallbackSeconds = 300))
+                if (hasDistance) {
+                    intervals.add(com.runtracker.shared.data.model.Interval(
+                        type = com.runtracker.shared.data.model.IntervalType.WORK,
+                        distanceMeters = targetDistanceMeters!! * 0.80,
+                        targetPaceMinSecondsPerKm = easyPaceMin,
+                        targetPaceMaxSecondsPerKm = easyPaceMax,
+                        targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_2,
+                        targetHeartRateMin = 130,
+                        targetHeartRateMax = 150
+                    ))
+                } else {
+                    intervals.add(com.runtracker.shared.data.model.Interval(
+                        type = com.runtracker.shared.data.model.IntervalType.WORK,
+                        durationSeconds = 1500, // 25 min
+                        targetPaceMinSecondsPerKm = easyPaceMin,
+                        targetPaceMaxSecondsPerKm = easyPaceMax,
+                        targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_2,
+                        targetHeartRateMin = 130,
+                        targetHeartRateMax = 150
+                    ))
+                }
+                intervals.add(makeCooldown(fallbackSeconds = 300))
             }
-            
+
             WorkoutType.LONG_RUN -> {
-                intervals.add(warmup)
-                intervals.add(com.runtracker.shared.data.model.Interval(
-                    type = com.runtracker.shared.data.model.IntervalType.WORK,
-                    durationSeconds = 3600, // 60 min
-                    targetPaceMinSecondsPerKm = easyPaceMin,
-                    targetPaceMaxSecondsPerKm = easyPaceMax,
-                    targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_2,
-                    targetHeartRateMin = 130,
-                    targetHeartRateMax = 155
-                ))
-                intervals.add(cooldown)
+                intervals.add(makeWarmup())
+                if (hasDistance) {
+                    intervals.add(com.runtracker.shared.data.model.Interval(
+                        type = com.runtracker.shared.data.model.IntervalType.WORK,
+                        distanceMeters = targetDistanceMeters!! * 0.80,
+                        targetPaceMinSecondsPerKm = easyPaceMin,
+                        targetPaceMaxSecondsPerKm = easyPaceMax,
+                        targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_2,
+                        targetHeartRateMin = 130,
+                        targetHeartRateMax = 155
+                    ))
+                } else {
+                    intervals.add(com.runtracker.shared.data.model.Interval(
+                        type = com.runtracker.shared.data.model.IntervalType.WORK,
+                        durationSeconds = 3600, // 60 min
+                        targetPaceMinSecondsPerKm = easyPaceMin,
+                        targetPaceMaxSecondsPerKm = easyPaceMax,
+                        targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_2,
+                        targetHeartRateMin = 130,
+                        targetHeartRateMax = 155
+                    ))
+                }
+                intervals.add(makeCooldown())
             }
-            
+
             WorkoutType.TEMPO_RUN -> {
-                intervals.add(warmup)
-                intervals.add(com.runtracker.shared.data.model.Interval(
-                    type = com.runtracker.shared.data.model.IntervalType.WORK,
-                    durationSeconds = 1200, // 20 min tempo
-                    targetPaceMinSecondsPerKm = tempoPaceMin,
-                    targetPaceMaxSecondsPerKm = tempoPaceMax,
-                    targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_4,
-                    targetHeartRateMin = 160,
-                    targetHeartRateMax = 175
-                ))
-                intervals.add(cooldown)
+                intervals.add(makeWarmup())
+                if (hasDistance) {
+                    intervals.add(com.runtracker.shared.data.model.Interval(
+                        type = com.runtracker.shared.data.model.IntervalType.WORK,
+                        distanceMeters = targetDistanceMeters!! * 0.80,
+                        targetPaceMinSecondsPerKm = tempoPaceMin,
+                        targetPaceMaxSecondsPerKm = tempoPaceMax,
+                        targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_4,
+                        targetHeartRateMin = 160,
+                        targetHeartRateMax = 175
+                    ))
+                } else {
+                    intervals.add(com.runtracker.shared.data.model.Interval(
+                        type = com.runtracker.shared.data.model.IntervalType.WORK,
+                        durationSeconds = 1200, // 20 min tempo
+                        targetPaceMinSecondsPerKm = tempoPaceMin,
+                        targetPaceMaxSecondsPerKm = tempoPaceMax,
+                        targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_4,
+                        targetHeartRateMin = 160,
+                        targetHeartRateMax = 175
+                    ))
+                }
+                intervals.add(makeCooldown())
             }
-            
+
             WorkoutType.INTERVAL_TRAINING -> {
-                intervals.add(warmup)
+                intervals.add(makeWarmup())
                 repeat(6) { index ->
                     intervals.add(com.runtracker.shared.data.model.Interval(
                         type = com.runtracker.shared.data.model.IntervalType.WORK,
@@ -483,11 +556,11 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
                         ))
                     }
                 }
-                intervals.add(cooldown)
+                intervals.add(makeCooldown())
             }
-            
+
             WorkoutType.HILL_REPEATS -> {
-                intervals.add(warmup)
+                intervals.add(makeWarmup())
                 repeat(8) { index ->
                     intervals.add(com.runtracker.shared.data.model.Interval(
                         type = com.runtracker.shared.data.model.IntervalType.WORK,
@@ -510,38 +583,62 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
                         ))
                     }
                 }
-                intervals.add(cooldown)
+                intervals.add(makeCooldown())
             }
-            
+
             WorkoutType.FARTLEK -> {
-                intervals.add(warmup)
-                intervals.add(com.runtracker.shared.data.model.Interval(
-                    type = com.runtracker.shared.data.model.IntervalType.WORK,
-                    durationSeconds = 1200, // 20 min varied pace
-                    targetPaceMinSecondsPerKm = tempoPaceMin,
-                    targetPaceMaxSecondsPerKm = easyPaceMax,
-                    targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_3,
-                    targetHeartRateMin = 145,
-                    targetHeartRateMax = 165
-                ))
-                intervals.add(cooldown)
+                intervals.add(makeWarmup())
+                if (hasDistance) {
+                    intervals.add(com.runtracker.shared.data.model.Interval(
+                        type = com.runtracker.shared.data.model.IntervalType.WORK,
+                        distanceMeters = targetDistanceMeters!! * 0.80,
+                        targetPaceMinSecondsPerKm = tempoPaceMin,
+                        targetPaceMaxSecondsPerKm = easyPaceMax,
+                        targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_3,
+                        targetHeartRateMin = 145,
+                        targetHeartRateMax = 165
+                    ))
+                } else {
+                    intervals.add(com.runtracker.shared.data.model.Interval(
+                        type = com.runtracker.shared.data.model.IntervalType.WORK,
+                        durationSeconds = 1200, // 20 min varied pace
+                        targetPaceMinSecondsPerKm = tempoPaceMin,
+                        targetPaceMaxSecondsPerKm = easyPaceMax,
+                        targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_3,
+                        targetHeartRateMin = 145,
+                        targetHeartRateMax = 165
+                    ))
+                }
+                intervals.add(makeCooldown())
             }
-            
+
             else -> {
-                intervals.add(warmup.copy(durationSeconds = 300))
-                intervals.add(com.runtracker.shared.data.model.Interval(
-                    type = com.runtracker.shared.data.model.IntervalType.WORK,
-                    durationSeconds = 1800,
-                    targetPaceMinSecondsPerKm = easyPaceMin,
-                    targetPaceMaxSecondsPerKm = easyPaceMax,
-                    targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_2,
-                    targetHeartRateMin = 130,
-                    targetHeartRateMax = 150
-                ))
-                intervals.add(cooldown.copy(durationSeconds = 300))
+                intervals.add(makeWarmup(fallbackSeconds = 300))
+                if (hasDistance) {
+                    intervals.add(com.runtracker.shared.data.model.Interval(
+                        type = com.runtracker.shared.data.model.IntervalType.WORK,
+                        distanceMeters = targetDistanceMeters!! * 0.80,
+                        targetPaceMinSecondsPerKm = easyPaceMin,
+                        targetPaceMaxSecondsPerKm = easyPaceMax,
+                        targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_2,
+                        targetHeartRateMin = 130,
+                        targetHeartRateMax = 150
+                    ))
+                } else {
+                    intervals.add(com.runtracker.shared.data.model.Interval(
+                        type = com.runtracker.shared.data.model.IntervalType.WORK,
+                        durationSeconds = 1800,
+                        targetPaceMinSecondsPerKm = easyPaceMin,
+                        targetPaceMaxSecondsPerKm = easyPaceMax,
+                        targetHeartRateZone = com.runtracker.shared.data.model.HeartRateZone.ZONE_2,
+                        targetHeartRateMin = 130,
+                        targetHeartRateMax = 150
+                    ))
+                }
+                intervals.add(makeCooldown(fallbackSeconds = 300))
             }
         }
-        
+
         return intervals
     }
 
@@ -579,6 +676,10 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
 
     private fun stopRun() {
         trackingService?.stopTracking()
+    }
+
+    private fun addSwimLap() {
+        trackingService?.addSwimLap()
     }
 
     override fun onDestroy() {

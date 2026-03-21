@@ -52,7 +52,8 @@ fun TrackingPagerScreen(
     isAmbient: Boolean,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onStop: () -> Unit
+    onStop: () -> Unit,
+    onAddSwimLap: () -> Unit = {}
 ) {
     var currentPage by remember { mutableIntStateOf(0) }
     var showStopConfirmation by remember { mutableStateOf(false) }
@@ -91,7 +92,8 @@ fun TrackingPagerScreen(
                     onPause = onPause,
                     onResume = onResume,
                     onShowStopConfirmation = { showStopConfirmation = true },
-                    onOpenSafetyMenu = { currentPage = 5 }
+                    onOpenSafetyMenu = { currentPage = 5 },
+                    onAddSwimLap = onAddSwimLap
                 )
                 1 -> HeartRateZonePage(trackingState = trackingState, isAmbient = isAmbient)
                 2 -> PaceZonePage(trackingState = trackingState, isAmbient = isAmbient)
@@ -144,7 +146,8 @@ fun MainTrackingPage(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onShowStopConfirmation: () -> Unit,
-    onOpenSafetyMenu: () -> Unit = {}
+    onOpenSafetyMenu: () -> Unit = {},
+    onAddSwimLap: () -> Unit = {}
 ) {
     if (isAmbient) {
         // Ambient mode - minimal OLED-friendly UI
@@ -204,17 +207,43 @@ fun MainTrackingPage(
 
             // Distance
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = String.format("%.2f", trackingState.distanceKm),
-                    style = MaterialTheme.typography.display3,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colors.onSurface
-                )
-                Text(
-                    text = "km",
-                    style = MaterialTheme.typography.caption1,
-                    color = MaterialTheme.colors.onSurfaceVariant
-                )
+                if (trackingState.activityType == "SWIMMING") {
+                    // Show meters for swimming
+                    Text(
+                        text = "${trackingState.distanceMeters.toInt()}",
+                        style = MaterialTheme.typography.display3,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colors.onSurface
+                    )
+                    Text(
+                        text = "meters",
+                        style = MaterialTheme.typography.caption1,
+                        color = MaterialTheme.colors.onSurfaceVariant
+                    )
+                } else {
+                    Text(
+                        text = String.format("%.2f", trackingState.distanceKm),
+                        style = MaterialTheme.typography.display3,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colors.onSurface
+                    )
+                    Text(
+                        text = "km",
+                        style = MaterialTheme.typography.caption1,
+                        color = MaterialTheme.colors.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Swim lap button (always available for pool swims as manual backup)
+            if (trackingState.activityType == "SWIMMING") {
+                Button(
+                    onClick = onAddSwimLap,
+                    modifier = Modifier.size(width = 100.dp, height = 36.dp),
+                    colors = ButtonDefaults.buttonColors(backgroundColor = WearColors.Swimming)
+                ) {
+                    Text("+ Lap", fontWeight = FontWeight.Bold, color = Color.White)
+                }
             }
 
             // Interval display

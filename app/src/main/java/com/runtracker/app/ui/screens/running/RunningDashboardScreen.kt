@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,9 +20,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runtracker.app.ui.components.*
 import com.runtracker.app.ui.theme.GradientColors
+import com.runtracker.shared.data.model.RunWorkoutTemplates
+import com.runtracker.shared.data.model.RunDifficulty
+import com.runtracker.shared.data.model.WorkoutCategory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +38,34 @@ fun RunningDashboardScreen(
     viewModel: RunningDashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showManualDialog by remember { mutableStateOf(false) }
+    var showStartRunSheet by remember { mutableStateOf(false) }
+
+    if (showManualDialog) {
+        com.runtracker.app.ui.components.ManualWorkoutDialog(
+            workoutType = com.runtracker.app.ui.components.ManualWorkoutType.RUN,
+            onDismiss = { showManualDialog = false },
+            onSave = { data ->
+                viewModel.saveManualRun(data.distanceMeters, data.durationMillis, data.notes.ifBlank { null })
+                showManualDialog = false
+            }
+        )
+    }
+
+    if (showStartRunSheet) {
+        StartRunBottomSheet(
+            onDismiss = { showStartRunSheet = false },
+            onFreeRun = {
+                showStartRunSheet = false
+                onStartRun()
+            },
+            onSelectTemplate = {
+                showStartRunSheet = false
+                // TODO: pass template to RunningScreen when template-guided tracking is implemented
+                onStartRun()
+            }
+        )
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -47,12 +80,21 @@ fun RunningDashboardScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
-                )
+                ),
+                actions = {
+                    IconButton(onClick = { showManualDialog = true }) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Log run manually",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             )
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = onStartRun,
+                onClick = { showStartRunSheet = true },
                 icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
                 text = { Text("Start Run") },
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -71,13 +113,24 @@ fun RunningDashboardScreen(
                 .fillMaxSize()
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = GradientColors.ScreenBackground
+                        colors = if (com.runtracker.app.ui.theme.LocalIsDarkTheme.current)
+                            GradientColors.ScreenBackground
+                        else GradientColors.ScreenBackgroundLight
                     )
                 )
                 .padding(padding),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Hero banner
+            item {
+                com.runtracker.app.ui.components.DashboardHeroBanner(
+                    title = "Running",
+                    subtitle = "Track your runs and chase your goals",
+                    imageUrl = com.runtracker.app.ui.components.SportImages.RUNNING
+                )
+            }
+
             // Next Scheduled Run
             item {
                 NextRunCard(
@@ -426,3 +479,171 @@ data class RecentRunInfo(
     val distance: String,
     val pace: String
 )
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StartRunBottomSheet(
+    onDismiss: () -> Unit,
+    onFreeRun: () -> Unit,
+    onSelectTemplate: (com.runtracker.shared.data.model.CustomRunWorkout) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val templates = remember { RunWorkoutTemplates.getAllTemplates() }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 32.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item {
+                Text(
+                    text = "Start a Run",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+
+            // Free Run — prominent card
+            item {
+                Surface(
+                    onClick = onFreeRun,
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.primary,
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Free Run",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "Track distance, time and heart rate",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Text(
+                    text = "WORKOUT TEMPLATES",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                )
+            }
+
+            items(templates) { template ->
+                Surface(
+                    onClick = { onSelectTemplate(template) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Difficulty indicator
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(
+                                    when (template.difficulty) {
+                                        RunDifficulty.EASY -> Color(0xFF4CAF50).copy(alpha = 0.15f)
+                                        RunDifficulty.MODERATE -> Color(0xFFFFA657).copy(alpha = 0.15f)
+                                        RunDifficulty.HARD -> Color(0xFFF85149).copy(alpha = 0.15f)
+                                        RunDifficulty.VERY_HARD -> Color(0xFF7C4DFF).copy(alpha = 0.15f)
+                                    },
+                                    RoundedCornerShape(10.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = when (template.category) {
+                                    WorkoutCategory.SPEED -> Icons.Default.Speed
+                                    WorkoutCategory.ENDURANCE -> Icons.Default.Timeline
+                                    WorkoutCategory.STRENGTH -> Icons.Default.Terrain
+                                    WorkoutCategory.RECOVERY -> Icons.Default.SelfImprovement
+                                    else -> Icons.Default.DirectionsRun
+                                },
+                                contentDescription = null,
+                                tint = when (template.difficulty) {
+                                    RunDifficulty.EASY -> Color(0xFF4CAF50)
+                                    RunDifficulty.MODERATE -> Color(0xFFFFA657)
+                                    RunDifficulty.HARD -> Color(0xFFF85149)
+                                    RunDifficulty.VERY_HARD -> Color(0xFF7C4DFF)
+                                },
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = template.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = buildString {
+                                    append(template.formattedDuration)
+                                    if (template.estimatedDistanceMeters > 0) {
+                                        append(" • ")
+                                        append(String.format("%.1f km", template.estimatedDistanceMeters / 1000))
+                                    }
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

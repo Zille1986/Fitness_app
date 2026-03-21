@@ -22,11 +22,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.runtracker.app.ui.components.*
 import com.runtracker.app.ui.theme.GradientColors
 import java.text.SimpleDateFormat
@@ -88,7 +90,9 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = GradientColors.ScreenBackground
+                        colors = if (com.runtracker.app.ui.theme.LocalIsDarkTheme.current)
+                            GradientColors.ScreenBackground
+                        else GradientColors.ScreenBackgroundLight
                     )
                 )
                 .padding(padding),
@@ -104,6 +108,22 @@ fun HomeScreen(
                             "running" -> onNavigateToRunning()
                             "gym" -> onNavigateToGym()
                             else -> {}
+                        }
+                    }
+                )
+            }
+
+            // Main Session — editorial hero card with background photo
+            item {
+                val nextWorkout = uiState.todayWorkouts.firstOrNull { !it.completed }
+                    ?: uiState.todayWorkouts.firstOrNull()
+                MainSessionCard(
+                    workout = nextWorkout,
+                    onStart = {
+                        when (nextWorkout?.type) {
+                            "running" -> onNavigateToRunning()
+                            "gym" -> onNavigateToGym()
+                            else -> onNavigateToRunning()
                         }
                     }
                 )
@@ -147,6 +167,7 @@ fun HomeScreen(
                     caloriesGoal = uiState.caloriesGoal,
                     proteinConsumed = uiState.proteinConsumed,
                     proteinGoal = uiState.proteinGoal,
+                    hasData = uiState.hasNutritionData,
                     onViewNutrition = onNavigateToNutrition
                 )
             }
@@ -305,55 +326,55 @@ private fun WeeklyActivityCard(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Activity grid - 2x2
+        // Activity grid - 2x2 with background photos
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            CompactActivityItem(
+            PhotoActivityItem(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.DirectionsRun,
                 label = "Run",
                 value = "${weeklyStats.runCount}",
                 subValue = String.format("%.1f km", weeklyStats.totalRunDistance / 1000),
-                color = Color(0xFF00E5CC),
+                imageUrl = com.runtracker.app.ui.components.SportImages.RUNNING,
                 onClick = onViewRunning
             )
-            
-            CompactActivityItem(
+
+            PhotoActivityItem(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.Pool,
                 label = "Swim",
                 value = "${weeklyStats.swimCount}",
                 subValue = String.format("%.1f km", weeklyStats.totalSwimDistance / 1000),
-                color = Color(0xFF00B8D4),
+                imageUrl = com.runtracker.app.ui.components.SportImages.SWIMMING,
                 onClick = onViewSwimming
             )
         }
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            CompactActivityItem(
+            PhotoActivityItem(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.DirectionsBike,
                 label = "Bike",
                 value = "${weeklyStats.bikeCount}",
                 subValue = String.format("%.1f km", weeklyStats.totalBikeDistance / 1000),
-                color = Color(0xFF7EE787),
+                imageUrl = com.runtracker.app.ui.components.SportImages.CYCLING,
                 onClick = onViewCycling
             )
-            
-            CompactActivityItem(
+
+            PhotoActivityItem(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.FitnessCenter,
                 label = "Gym",
                 value = "${weeklyStats.gymCount}",
                 subValue = "${weeklyStats.totalSets} sets",
-                color = Color(0xFFFFA657),
+                imageUrl = com.runtracker.app.ui.components.SportImages.GYM,
                 onClick = onViewGym
             )
         }
@@ -474,6 +495,82 @@ private fun CompactActivityItem(
 }
 
 @Composable
+private fun PhotoActivityItem(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    label: String,
+    value: String,
+    subValue: String,
+    imageUrl: String,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .height(120.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+    ) {
+        // Background photo
+        AsyncImage(
+            model = imageUrl,
+            contentDescription = label,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Dark gradient overlay for readability
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.2f),
+                            Color.Black.copy(alpha = 0.7f)
+                        )
+                    )
+                )
+        )
+
+        // Content
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(22.dp)
+            )
+            Column {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = subValue,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ActivityStatItem(
     icon: ImageVector,
     label: String,
@@ -568,9 +665,11 @@ private fun ReadinessScoreCard(
         
         // Factors with modern styling
         readinessFactors.forEach { factor ->
-            val factorColor = when (factor.status) {
-                "Good" -> Color(0xFF7EE787)
-                "Moderate" -> Color(0xFFFFA657)
+            val factorColor = when {
+                factor.status.startsWith("Good") -> Color(0xFF7EE787)
+                factor.status.startsWith("Moderate") -> Color(0xFFFFA657)
+                factor.status == "No data" -> MaterialTheme.colorScheme.onSurfaceVariant
+                factor.status.startsWith("Low") -> Color(0xFFF85149)
                 else -> Color(0xFFF85149)
             }
             Row(
@@ -637,6 +736,7 @@ private fun NutritionOverviewCard(
     caloriesGoal: Int,
     proteinConsumed: Int,
     proteinGoal: Int,
+    hasData: Boolean = true,
     onViewNutrition: () -> Unit
 ) {
     GlassCard(
@@ -664,27 +764,47 @@ private fun NutritionOverviewCard(
                 modifier = Modifier.size(20.dp)
             )
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            NutritionCircle(
-                label = "Calories",
-                consumed = caloriesConsumed,
-                goal = caloriesGoal,
-                unit = "kcal",
-                color = Color(0xFFFFA657)
-            )
-            NutritionCircle(
-                label = "Protein",
-                consumed = proteinConsumed,
-                goal = proteinGoal,
-                unit = "g",
-                color = Color(0xFF00E5CC)
-            )
+
+        if (!hasData) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = 8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Restaurant,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "No data — tap to log a meal",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                NutritionCircle(
+                    label = "Calories",
+                    consumed = caloriesConsumed,
+                    goal = caloriesGoal,
+                    unit = "kcal",
+                    color = Color(0xFFFFA657)
+                )
+                NutritionCircle(
+                    label = "Protein",
+                    consumed = proteinConsumed,
+                    goal = proteinGoal,
+                    unit = "g",
+                    color = Color(0xFF00E5CC)
+                )
+            }
         }
     }
 }
@@ -869,6 +989,150 @@ private fun StreakCard(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFFFA657)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MainSessionCard(
+    workout: TodayWorkout?,
+    onStart: () -> Unit
+) {
+    val workoutType = workout?.type ?: "running"
+    val workoutName = workout?.name ?: "Ready to Train"
+    val workoutDescription = workout?.description ?: "Start a new session and push your limits."
+
+    val imageUrl = remember(workoutType) {
+        when (workoutType) {
+            "running" -> "https://lh3.googleusercontent.com/aida-public/AB6AXuCddTvozj6m5uomnWYVHwxZaAaK5AV2kxpSdILwp70J6ObXKKRQVYaTsBPS8Ykzhlrc5-cu4Ab6VOHAywPX1oLwEoxOZpjQUb48e2QARQHQjOHWiZ_pfiNXLX7GS6wrMcS6w9XpB0K_fJXLD0T4c7bkul5Xcbm4v18FW5qoqKPIHbsOiHk95HOht7ua3xZ2Viknx5lD4tN1ljD_3DHGo5sQnY5RvRlG21I8upPyDi69hyqL0-gVWoEYxzY6gXrekrRTR5-X3Pqyuo4"
+            "gym" -> "https://lh3.googleusercontent.com/aida-public/AB6AXuDo7bcdz_LXnmWIRlyKR5NciFFjr_pr53RZUmNcYOroD7PG-dfbIXC98hSFH8V-M5QPzrVVqAdomCskIfD8siA7ACuynB5u8w8uLtMJ_XnQ2l28eQqMVi-ORNkxi2e3e7c15m7r5EFlJzdNveO_NOl2yN5FFmNnOSXFXaru5JXSqJQnEsihbi9DWVsIENtnXlHQCZmL4_7EPzTH2pzjDFQ2kpXvw7BptPPvexhjW9ygA3DYqxlZf-sGEIPaFOg6cb-Y1UN3xRm42VA"
+            else -> "https://lh3.googleusercontent.com/aida-public/AB6AXuCddTvozj6m5uomnWYVHwxZaAaK5AV2kxpSdILwp70J6ObXKKRQVYaTsBPS8Ykzhlrc5-cu4Ab6VOHAywPX1oLwEoxOZpjQUb48e2QARQHQjOHWiZ_pfiNXLX7GS6wrMcS6w9XpB0K_fJXLD0T4c7bkul5Xcbm4v18FW5qoqKPIHbsOiHk95HOht7ua3xZ2Viknx5lD4tN1ljD_3DHGo5sQnY5RvRlG21I8upPyDi69hyqL0-gVWoEYxzY6gXrekrRTR5-X3Pqyuo4"
+        }
+    }
+
+    val categoryLabel = when (workoutType) {
+        "running" -> "SPEED WORK"
+        "gym" -> "STRENGTH"
+        else -> "SESSION"
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(280.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onStart)
+    ) {
+        // Background photo
+        AsyncImage(
+            model = imageUrl,
+            contentDescription = workoutName,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Gradient overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.3f),
+                            Color.Black.copy(alpha = 0.8f)
+                        ),
+                        startY = 0f,
+                        endY = Float.POSITIVE_INFINITY
+                    )
+                )
+        )
+
+        // Content overlay
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.Bottom
+        ) {
+            // Category chip + duration
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.primary
+                ) {
+                    Text(
+                        text = categoryLabel,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+                Text(
+                    text = "45 Minutes",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Title
+            Text(
+                text = workoutName,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                letterSpacing = (-0.5).sp
+            )
+
+            // Description
+            Text(
+                text = workoutDescription,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.padding(top = 4.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Action buttons
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = onStart,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Text(
+                        text = "Start Session",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+                OutlinedButton(
+                    onClick = onStart,
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.White
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        text = "View Details",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelLarge
                     )
                 }
             }

@@ -70,6 +70,15 @@ fun GymDashboardScreenNew(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Hero banner
+            item {
+                com.runtracker.app.ui.components.DashboardHeroBanner(
+                    title = "Gym",
+                    subtitle = "Build strength and track your lifts",
+                    imageUrl = com.runtracker.app.ui.components.SportImages.GYM
+                )
+            }
+
             // Next Workout
             item {
                 NextWorkoutCard(

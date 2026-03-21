@@ -2,38 +2,60 @@ package com.runtracker.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Light Theme Colors
-val Primary = Color(0xFF1E88E5)
-val PrimaryDark = Color(0xFF1565C0)
-val PrimaryLight = Color(0xFF64B5F6)
-val Secondary = Color(0xFF26A69A)
-val SecondaryDark = Color(0xFF00897B)
-val Accent = Color(0xFFFF6D00)
-val AccentLight = Color(0xFFFF9E40)
+// ── Serene Light Theme (forest-green palette) ────────────────────────
+val LightPrimary = Color(0xFF3F6758)
+val LightPrimaryDim = Color(0xFF335B4D)
+val LightPrimaryContainer = Color(0xFFC0ECDA)
+val LightOnPrimary = Color(0xFFE5FFF2)
+val LightOnPrimaryContainer = Color(0xFF32594B)
 
-val Background = Color(0xFFF5F5F5)
-val Surface = Color(0xFFFFFFFF)
-val SurfaceVariant = Color(0xFFF0F0F0)
+val LightSecondary = Color(0xFF516170)
+val LightSecondaryDim = Color(0xFF455564)
+val LightSecondaryContainer = Color(0xFFD4E4F6)
+val LightOnSecondary = Color(0xFFF6F9FF)
+val LightOnSecondaryContainer = Color(0xFF445362)
 
-val OnPrimary = Color(0xFFFFFFFF)
-val OnSecondary = Color(0xFFFFFFFF)
-val OnBackground = Color(0xFF1C1B1F)
-val OnSurface = Color(0xFF1C1B1F)
-val OnSurfaceVariant = Color(0xFF49454F)
+val LightTertiary = Color(0xFF2E6771)
+val LightTertiaryDim = Color(0xFF205A65)
+val LightTertiaryContainer = Color(0xFFB7EFFB)
+val LightOnTertiary = Color(0xFFEDFBFF)
+val LightOnTertiaryContainer = Color(0xFF215B65)
 
-val Error = Color(0xFFB00020)
-val Success = Color(0xFF4CAF50)
-val Warning = Color(0xFFFFC107)
+val LightBackground = Color(0xFFF9F9F7)
+val LightSurface = Color(0xFFF9F9F7)
+val LightSurfaceDim = Color(0xFFD7DBD8)
+val LightSurfaceBright = Color(0xFFF9F9F7)
+val LightSurfaceVariant = Color(0xFFE0E3E0)
+val LightSurfaceContainer = Color(0xFFECEEEC)
+val LightSurfaceContainerLow = Color(0xFFF3F4F2)
+val LightSurfaceContainerHigh = Color(0xFFE6E9E6)
+val LightSurfaceContainerHighest = Color(0xFFE0E3E0)
+val LightSurfaceContainerLowest = Color(0xFFFFFFFF)
+
+val LightOnBackground = Color(0xFF2F3332)
+val LightOnSurface = Color(0xFF2F3332)
+val LightOnSurfaceVariant = Color(0xFF5C605E)
+
+val LightOutline = Color(0xFF777C79)
+val LightOutlineVariant = Color(0xFFAFB3B0)
+
+val LightError = Color(0xFFA83836)
+val LightOnError = Color(0xFFFFF7F6)
+val LightErrorContainer = Color(0xFFFA746F)
+val LightOnErrorContainer = Color(0xFF6E0A12)
+
+val LightInverseSurface = Color(0xFF0C0F0E)
+val LightInverseOnSurface = Color(0xFF9C9D9B)
+val LightInversePrimary = Color(0xFFCCF8E5)
+
+val LightSuccess = Color(0xFF4CAF50)
+val LightWarning = Color(0xFFFFC107)
 
 val HeartRateZone1 = Color(0xFF90CAF9)
 val HeartRateZone2 = Color(0xFF81C784)
 val HeartRateZone3 = Color(0xFFFFD54F)
 val HeartRateZone4 = Color(0xFFFFB74D)
 val HeartRateZone5 = Color(0xFFE57373)
-
-val ChartLine = Primary
-val ChartFill = PrimaryLight.copy(alpha = 0.3f)
-val ChartGrid = Color(0xFFE0E0E0)
 
 // ── Premium Dark Theme ──────────────────────────────────────────────
 
@@ -92,27 +114,47 @@ object GradientColors {
     val PurpleBlue = listOf(Color(0xFF7C4DFF), Color(0xFF536DFE))
     val GlassOverlay = listOf(Color(0x20FFFFFF), Color(0x08FFFFFF))
 
-    // Premium screen background (3-stop navy gradient)
+    // Premium dark screen background (3-stop navy gradient)
     val ScreenBackground = listOf(
         Color(0xFF080B14),
         Color(0xFF0D1120),
         Color(0xFF121828)
     )
 
+    // Light screen background (subtle warm gradient)
+    val ScreenBackgroundLight = listOf(
+        Color(0xFFF9F9F7),
+        Color(0xFFF3F4F2),
+        Color(0xFFECEEEC)
+    )
+
     // New accent combos
     val PurpleTeal = listOf(Color(0xFF7C4DFF), Color(0xFF00E5CC))
     val GoldOrange = listOf(Color(0xFFFFD700), Color(0xFFFFA657))
 
-    // Card glass overlays (multi-stop transparency)
+    // Card glass overlays (multi-stop transparency) — dark
     val CardGlass = listOf(
         Color(0x18FFFFFF),
         Color(0x08FFFFFF),
         Color(0x03FFFFFF)
     )
 
-    // Nav bar glass
+    // Card glass overlays — light
+    val CardGlassLight = listOf(
+        Color(0x0A000000),
+        Color(0x05000000),
+        Color(0x02000000)
+    )
+
+    // Nav bar glass — dark
     val NavBarGlass = listOf(
         Color(0xFF111827).copy(alpha = 0.95f),
         Color(0xFF111827).copy(alpha = 0.85f)
+    )
+
+    // Nav bar glass — light
+    val NavBarGlassLight = listOf(
+        Color(0xFFFFFFFF).copy(alpha = 0.90f),
+        Color(0xFFF9F9F7).copy(alpha = 0.85f)
     )
 }

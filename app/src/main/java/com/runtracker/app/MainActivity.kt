@@ -26,6 +26,7 @@ import com.runtracker.app.strava.StravaService
 import com.runtracker.app.ui.navigation.GoSteadyNavGraph
 import com.runtracker.app.ui.navigation.Screen
 import com.runtracker.app.ui.theme.GoSteadyTheme
+import com.runtracker.app.ui.theme.ThemePreferences
 import com.runtracker.shared.data.repository.UserRepository
 import com.runtracker.app.widget.WidgetDataUpdater
 import dagger.hilt.android.AndroidEntryPoint
@@ -67,6 +68,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var startDestination by remember { mutableStateOf<String?>(null) }
+            val themePreferences = remember { ThemePreferences(this@MainActivity) }
+            val isDarkMode by themePreferences.isDarkMode.collectAsState(initial = true)
 
             LaunchedEffect(Unit) {
                 val profile = userRepository.getProfile().first()
@@ -75,7 +78,7 @@ class MainActivity : ComponentActivity() {
                 } else {
                     Screen.Onboarding.route
                 }
-                
+
                 // Process Strava auth code if present
                 stravaAuthCode?.let { code ->
                     stravaService.handleAuthCallback(code)
@@ -83,7 +86,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            GoSteadyTheme {
+            GoSteadyTheme(darkTheme = isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

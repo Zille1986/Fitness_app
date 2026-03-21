@@ -7,6 +7,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.DistanceRecord
@@ -33,6 +34,7 @@ class HealthConnectManager @Inject constructor(
 
     val permissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
+        HealthPermission.getReadPermission(SleepSessionRecord::class),
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
         HealthPermission.getReadPermission(HeartRateRecord::class),
         HealthPermission.getReadPermission(DistanceRecord::class)
@@ -146,6 +148,60 @@ class HealthConnectManager @Inject constructor(
         }
     }
 
+    /**
+     * Reads last night's sleep data from Health Connect.
+     * Returns total sleep duration in hours, or null if no data.
+     */
+    suspend fun getLastNightSleep(): SleepData? {
+        val client = healthConnectClient ?: return null
+
+        // Look for sleep sessions ending today (last night's sleep)
+        val today = LocalDate.now()
+        val yesterdayEvening = today.minusDays(1).atTime(18, 0).atZone(ZoneId.systemDefault()).toInstant()
+        val now = Instant.now()
+
+        return try {
+            val response = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = SleepSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(yesterdayEvening, now)
+                )
+            )
+
+            if (response.records.isEmpty()) return null
+
+            // Sum total sleep across all sessions (some watches split sleep into segments)
+            var totalSleepMillis = 0L
+            var deepSleepMillis = 0L
+            var remSleepMillis = 0L
+            var lightSleepMillis = 0L
+
+            for (session in response.records) {
+                val sessionDuration = java.time.Duration.between(session.startTime, session.endTime).toMillis()
+                totalSleepMillis += sessionDuration
+
+                for (stage in session.stages) {
+                    val stageDuration = java.time.Duration.between(stage.startTime, stage.endTime).toMillis()
+                    when (stage.stage) {
+                        SleepSessionRecord.STAGE_TYPE_DEEP -> deepSleepMillis += stageDuration
+                        SleepSessionRecord.STAGE_TYPE_REM -> remSleepMillis += stageDuration
+                        SleepSessionRecord.STAGE_TYPE_LIGHT -> lightSleepMillis += stageDuration
+                        else -> {} // AWAKE, OUT_OF_BED, etc.
+                    }
+                }
+            }
+
+            SleepData(
+                totalHours = totalSleepMillis / 3600000.0,
+                deepHours = deepSleepMillis / 3600000.0,
+                remHours = remSleepMillis / 3600000.0,
+                lightHours = lightSleepMillis / 3600000.0
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     suspend fun getTodayExerciseSessions(): List<ExerciseSessionData> {
         val client = healthConnectClient ?: return emptyList()
         
@@ -191,6 +247,82 @@ class HealthConnectManager @Inject constructor(
         } catch (e: Exception) {
             emptyList()
         }
+    }
+    /**
+     * Reads swimming exercise sessions from Health Connect for the last 7 days.
+     * Returns distance (meters) and duration for each session.
+     */
+    suspend fun getRecentSwimSessions(): List<SwimSessionData> {
+        val client = healthConnectClient ?: return emptyList()
+
+        val now = Instant.now()
+        val weekAgo = now.minusSeconds(7 * 24 * 3600)
+
+        return try {
+            val sessions = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = ExerciseSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(weekAgo, now)
+                )
+            )
+
+            val swimSessions = sessions.records.filter { session ->
+                session.exerciseType == ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL ||
+                session.exerciseType == ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER
+            }
+
+            swimSessions.map { session ->
+                // Read distance for this session's time range
+                val distanceRecords = client.readRecords(
+                    ReadRecordsRequest(
+                        recordType = DistanceRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(session.startTime, session.endTime)
+                    )
+                )
+                val totalDistanceMeters = distanceRecords.records.sumOf {
+                    it.distance.inMeters
+                }
+
+                SwimSessionData(
+                    startTime = session.startTime,
+                    endTime = session.endTime,
+                    distanceMeters = totalDistanceMeters,
+                    durationMillis = java.time.Duration.between(session.startTime, session.endTime).toMillis(),
+                    isOpenWater = session.exerciseType == ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER,
+                    title = session.title ?: "Swim"
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+}
+
+data class SwimSessionData(
+    val startTime: Instant,
+    val endTime: Instant,
+    val distanceMeters: Double,
+    val durationMillis: Long,
+    val isOpenWater: Boolean,
+    val title: String
+)
+
+data class SleepData(
+    val totalHours: Double,
+    val deepHours: Double = 0.0,
+    val remHours: Double = 0.0,
+    val lightHours: Double = 0.0
+) {
+    val quality: String get() = when {
+        totalHours >= 7.0 -> "Good"
+        totalHours >= 5.5 -> "Moderate"
+        else -> "Low"
+    }
+
+    val formatted: String get() {
+        val h = totalHours.toInt()
+        val m = ((totalHours - h) * 60).toInt()
+        return "${h}h ${m}m"
     }
 }
 

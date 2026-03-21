@@ -7,6 +7,7 @@ import com.runtracker.shared.data.repository.UserRepository
 import com.runtracker.shared.data.repository.TrainingPlanRepository
 import com.runtracker.shared.data.repository.RunRepository
 import com.runtracker.shared.data.repository.GymRepository
+import com.runtracker.app.health.HealthConnectManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +24,8 @@ class HomeViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val trainingPlanRepository: TrainingPlanRepository,
     private val runRepository: RunRepository,
-    private val gymRepository: GymRepository
+    private val gymRepository: GymRepository,
+    private val healthConnectManager: HealthConnectManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -61,33 +63,40 @@ class HomeViewModel @Inject constructor(
             // Calculate current streak
             var currentStreak = 0
             var longestStreak = 0
-            var tempStreak = 0
             val today = Calendar.getInstance()
             val checkDate = Calendar.getInstance()
-            
+            var skippedToday = false
+
             // Check backwards from today
             for (i in 0..365) {
                 checkDate.timeInMillis = today.timeInMillis
                 checkDate.add(Calendar.DAY_OF_YEAR, -i)
                 val dateKey = "${checkDate.get(Calendar.YEAR)}-${checkDate.get(Calendar.DAY_OF_YEAR)}"
-                
+
                 if (workoutDates.contains(dateKey)) {
-                    if (i == 0 || currentStreak > 0) {
-                        currentStreak++
-                    }
+                    currentStreak++
+                } else if (i == 0) {
+                    // Today not worked out yet, keep checking yesterday
+                    skippedToday = true
+                    continue
+                } else {
+                    // Gap found, streak ends
+                    break
+                }
+            }
+
+            // Calculate longest streak across all history
+            var tempStreak = 0
+            val sortedDates = workoutDates.sortedDescending()
+            for (j in 0..365) {
+                checkDate.timeInMillis = today.timeInMillis
+                checkDate.add(Calendar.DAY_OF_YEAR, -j)
+                val dateKey = "${checkDate.get(Calendar.YEAR)}-${checkDate.get(Calendar.DAY_OF_YEAR)}"
+                if (workoutDates.contains(dateKey)) {
                     tempStreak++
                     longestStreak = maxOf(longestStreak, tempStreak)
                 } else {
-                    if (i == 0) {
-                        // Today not worked out yet, check if yesterday continues streak
-                        continue
-                    } else if (currentStreak == 0 && i == 1) {
-                        // Yesterday no workout, streak is 0
-                        break
-                    } else {
-                        tempStreak = 0
-                        if (currentStreak > 0) break
-                    }
+                    tempStreak = 0
                 }
             }
             
@@ -137,15 +146,18 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             // Load today's nutrition data (includes targets and consumed)
             nutritionRepository.getTodayNutrition().collect { nutrition ->
-                nutrition?.let { n ->
+                if (nutrition != null && (nutrition.consumedCalories > 0 || nutrition.consumedProteinGrams > 0)) {
                     _uiState.update {
                         it.copy(
-                            caloriesConsumed = n.consumedCalories,
-                            caloriesGoal = n.targetCalories,
-                            proteinConsumed = n.consumedProteinGrams,
-                            proteinGoal = n.targetProteinGrams
+                            caloriesConsumed = nutrition.consumedCalories,
+                            caloriesGoal = nutrition.targetCalories,
+                            proteinConsumed = nutrition.consumedProteinGrams,
+                            proteinGoal = nutrition.targetProteinGrams,
+                            hasNutritionData = true
                         )
                     }
+                } else {
+                    _uiState.update { it.copy(hasNutritionData = false) }
                 }
             }
         }
@@ -206,12 +218,14 @@ class HomeViewModel @Inject constructor(
 
     private fun loadReadinessScore() {
         viewModelScope.launch {
-            // Calculate readiness based on various factors
             val factors = mutableListOf<ReadinessFactor>()
-            
-            // Sleep factor (placeholder - would come from health data)
-            factors.add(ReadinessFactor("Sleep", "Good"))
-            
+
+            // Sleep — from Health Connect (Pixel Watch, Samsung, etc.)
+            val sleepData = try { healthConnectManager.getLastNightSleep() } catch (_: Exception) { null }
+            val sleepStatus = sleepData?.quality ?: "No data"
+            val sleepDisplay = if (sleepData != null) "${sleepStatus} (${sleepData.formatted})" else "No data"
+            factors.add(ReadinessFactor("Sleep", sleepDisplay))
+
             // Recovery factor based on recent workouts
             val recentWorkouts = _uiState.value.weeklyStats.runCount + _uiState.value.weeklyStats.gymCount
             val recoveryStatus = when {
@@ -220,28 +234,44 @@ class HomeViewModel @Inject constructor(
                 else -> "Low"
             }
             factors.add(ReadinessFactor("Recovery", recoveryStatus))
-            
-            // Nutrition factor
-            val nutritionStatus = if (_uiState.value.caloriesConsumed >= _uiState.value.caloriesGoal * 0.8) "Good" else "Moderate"
-            factors.add(ReadinessFactor("Nutrition", nutritionStatus))
-            
-            // Calculate overall score
-            var score = 0
-            factors.forEach { factor ->
-                score += when (factor.status) {
-                    "Good" -> 33
-                    "Moderate" -> 22
-                    else -> 11
-                }
+
+            // Nutrition factor — only score if user has logged something
+            val hasNutrition = _uiState.value.hasNutritionData
+            val nutritionStatus = if (!hasNutrition) {
+                "No data"
+            } else if (_uiState.value.caloriesConsumed >= _uiState.value.caloriesGoal * 0.8) {
+                "Good"
+            } else {
+                "Moderate"
             }
-            
-            // Generate recommendation
+            factors.add(ReadinessFactor("Nutrition", nutritionStatus))
+
+            // Calculate overall score — only from factors that have real data
+            // Use raw quality values for scoring (not the display strings)
+            val rawScores = listOf(sleepStatus, recoveryStatus, nutritionStatus)
+            val scoredValues = rawScores.filter { it != "No data" }
+            val score = if (scoredValues.isEmpty()) {
+                50 // neutral default when no data
+            } else {
+                var total = 0
+                scoredValues.forEach { status ->
+                    total += when (status) {
+                        "Good" -> 33
+                        "Moderate" -> 22
+                        else -> 11
+                    }
+                }
+                // Scale to 99 based on available factors
+                (total.toDouble() / scoredValues.size * 3).toInt().coerceIn(0, 99)
+            }
+
             val recommendation = when {
+                scoredValues.isEmpty() -> "Log your meals and workouts for personalised readiness insights."
                 score >= 80 -> "You're ready for a high-intensity workout today!"
                 score >= 60 -> "Consider a moderate workout. Listen to your body."
                 else -> "Focus on recovery today. Light activity or rest recommended."
             }
-            
+
             _uiState.update {
                 it.copy(
                     readinessScore = score,
@@ -261,13 +291,14 @@ data class HomeUiState(
     val userName: String = "",
     val todayWorkouts: List<TodayWorkout> = emptyList(),
     val weeklyStats: WeeklyStats = WeeklyStats(),
-    val readinessScore: Int = 75,
+    val readinessScore: Int = 50,
     val readinessFactors: List<ReadinessFactor> = emptyList(),
     val aiRecommendation: String = "Loading...",
     val caloriesConsumed: Int = 0,
     val caloriesGoal: Int = 2000,
     val proteinConsumed: Int = 0,
     val proteinGoal: Int = 150,
+    val hasNutritionData: Boolean = false,
     val currentStreak: Int = 0,
     val longestStreak: Int = 0,
     val streakMessage: String = ""

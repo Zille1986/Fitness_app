@@ -22,6 +22,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.runtracker.app.ui.theme.GradientColors
+import com.runtracker.app.ui.theme.ThemePreferences
+import kotlinx.coroutines.launch
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -227,11 +229,11 @@ fun MainNavigationScreen(
                         },
                         selected = selected,
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            selectedIconColor = Color.White,
+                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
                             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            indicatorColor = Color.Transparent
+                            indicatorColor = Color(0xFF6B7280) // Grey pill background
                         ),
                         onClick = {
                             bottomNavController.navigate(item.route) {
@@ -527,6 +529,74 @@ private fun MoreMenuScreen(
                 color = Color(0xFF7C4DFF),
                 onClick = onNavigateToCustomizeNavBar
             )
+        }
+
+        // Theme Toggle
+        item {
+            val context = LocalContext.current
+            val themePreferences = remember { ThemePreferences(context) }
+            val isDarkMode by themePreferences.isDarkMode.collectAsState(initial = true)
+            val coroutineScope = rememberCoroutineScope()
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .clickable {
+                        coroutineScope.launch {
+                            themePreferences.setDarkMode(!isDarkMode)
+                        }
+                    }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(
+                            color = if (isDarkMode) Color(0xFF7C4DFF).copy(alpha = 0.15f)
+                                    else Color(0xFF3F6758).copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(12.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
+                        contentDescription = "Theme",
+                        tint = if (isDarkMode) Color(0xFF7C4DFF) else Color(0xFF3F6758),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Appearance",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (isDarkMode) "Dark mode" else "Light mode",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = isDarkMode,
+                    onCheckedChange = { dark ->
+                        coroutineScope.launch {
+                            themePreferences.setDarkMode(dark)
+                        }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+            }
         }
 
         // Show nav items that aren't in the bottom bar

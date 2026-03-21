@@ -95,6 +95,31 @@ class CyclingDashboardViewModel @Inject constructor(
     fun refresh() {
         loadData()
     }
+
+    fun saveManualRide(distanceMeters: Double, durationMillis: Long, notes: String?) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val speedKmh = if (durationMillis > 0) {
+                (distanceMeters / 1000.0) / (durationMillis / 3600000.0)
+            } else 0.0
+
+            val workout = CyclingWorkout(
+                startTime = now - durationMillis,
+                endTime = now,
+                cyclingType = CyclingType.OUTDOOR,
+                distanceMeters = distanceMeters,
+                durationMillis = durationMillis,
+                avgSpeedKmh = speedKmh,
+                maxSpeedKmh = speedKmh,
+                caloriesBurned = 0,
+                notes = notes,
+                source = CyclingSource.MANUAL,
+                isCompleted = true
+            )
+            cyclingRepository.insertWorkout(workout)
+            loadData()
+        }
+    }
 }
 
 data class CyclingDashboardUiState(
@@ -120,22 +145,41 @@ fun CyclingDashboardScreen(
     
     var showCyclingTypeDialog by remember { mutableStateOf(false) }
     var showTrainerDialog by remember { mutableStateOf(false) }
-    
+    var showManualDialog by remember { mutableStateOf(false) }
+
+    if (showManualDialog) {
+        com.runtracker.app.ui.components.ManualWorkoutDialog(
+            workoutType = com.runtracker.app.ui.components.ManualWorkoutType.BIKE,
+            onDismiss = { showManualDialog = false },
+            onSave = { data ->
+                viewModel.saveManualRide(data.distanceMeters, data.durationMillis, data.notes.ifBlank { null })
+                showManualDialog = false
+            }
+        )
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Text(
                         "Cycling",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
-                    ) 
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
                 ),
                 actions = {
+                    IconButton(onClick = { showManualDialog = true }) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Log ride manually",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(onClick = { showTrainerDialog = true }) {
                         Icon(
                             Icons.Default.Bluetooth,
@@ -164,6 +208,15 @@ fun CyclingDashboardScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Hero banner
+            item {
+                com.runtracker.app.ui.components.DashboardHeroBanner(
+                    title = "Cycling",
+                    subtitle = "Outdoor rides and indoor training",
+                    imageUrl = com.runtracker.app.ui.components.SportImages.CYCLING
+                )
+            }
+
             // Smart Trainer Status Card (if connected)
             if (connectionState == SmartTrainerService.ConnectionState.READY) {
                 item {
