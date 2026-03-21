@@ -151,12 +151,17 @@ class StravaService @Inject constructor(
         val token = ensureValidToken() ?: return Result.failure(Exception("Not authenticated"))
 
         return try {
-            // If we have GPS data, upload as GPX file for full route
             if (run.routePoints.isNotEmpty()) {
                 android.util.Log.d("StravaService", "Uploading with GPX (${run.routePoints.size} points)")
-                uploadRunWithGpx(run, token)
+                val gpxResult = uploadRunWithGpx(run, token)
+                if (gpxResult.isSuccess) {
+                    gpxResult
+                } else {
+                    // GPX failed — fall back to simple (no route, but activity is created)
+                    android.util.Log.w("StravaService", "GPX upload failed, falling back to simple: ${gpxResult.exceptionOrNull()?.message}")
+                    uploadRunSimple(run, token)
+                }
             } else {
-                // Fallback to simple activity creation without GPS
                 android.util.Log.d("StravaService", "Uploading simple (no GPS data)")
                 uploadRunSimple(run, token)
             }
@@ -165,18 +170,17 @@ class StravaService @Inject constructor(
             Result.failure(e)
         }
     }
-    
-    private suspend fun uploadRunWithGpx(run: Run, token: String): Result<Long> {
-        return retryWithBackoff(times = 3, initialDelayMs = 500) {
-            val gpxContent = GpxGenerator.generateGpx(run)
 
+    private suspend fun uploadRunWithGpx(run: Run, token: String): Result<Long> {
+        return try {
+            val gpxContent = GpxGenerator.generateGpx(run)
             val gpxBody = gpxContent.toRequestBody("application/gpx+xml".toMediaType())
             val gpxPart = okhttp3.MultipartBody.Part.createFormData("file", "activity.gpx", gpxBody)
 
             val dataType = "gpx".toRequestBody("text/plain".toMediaType())
             val name = generateRunName(run).toRequestBody("text/plain".toMediaType())
             val description = generateDescription(run).toRequestBody("text/plain".toMediaType())
-            val sportType = "run".toRequestBody("text/plain".toMediaType())
+            val sportType = "Run".toRequestBody("text/plain".toMediaType())
 
             val response = api.uploadActivity(
                 authorization = "Bearer $token",
@@ -188,16 +192,60 @@ class StravaService @Inject constructor(
             )
 
             if (response.isSuccessful) {
-                response.body()?.id ?: throw Exception("Empty response")
+                val uploadId = response.body()?.id
+                    ?: return Result.failure(Exception("Empty upload response"))
+                val error = response.body()?.error
+                if (!error.isNullOrBlank()) {
+                    return Result.failure(Exception("Upload error: $error"))
+                }
+
+                android.util.Log.d("StravaService", "GPX uploaded, polling for activity_id (uploadId=$uploadId)")
+                // Poll for the activity_id — Strava processes GPX asynchronously
+                pollUploadStatus(uploadId, token)
             } else {
-                // If GPX upload fails, try simple upload
-                android.util.Log.w("StravaService", "GPX upload failed: ${response.code()}, trying simple upload")
-                val simpleResult = uploadRunSimple(run, token)
-                simpleResult.getOrThrow()
+                val errorBody = response.errorBody()?.string()
+                android.util.Log.e("StravaService", "GPX upload HTTP ${response.code()}: $errorBody")
+                Result.failure(Exception("GPX upload failed: ${response.code()} $errorBody"))
             }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
-    
+
+    /**
+     * Polls Strava's upload status endpoint until the activity_id is available
+     * or processing fails. Strava typically takes 2-10 seconds.
+     */
+    private suspend fun pollUploadStatus(uploadId: Long, token: String): Result<Long> {
+        repeat(10) { attempt ->
+            kotlinx.coroutines.delay(2000) // wait 2s between polls
+            try {
+                val statusResponse = api.getUploadStatus(
+                    authorization = "Bearer $token",
+                    uploadId = uploadId
+                )
+                if (statusResponse.isSuccessful) {
+                    val status = statusResponse.body()
+                    android.util.Log.d("StravaService", "Upload status poll #${attempt + 1}: status=${status?.status}, activity_id=${status?.activity_id}, error=${status?.error}")
+
+                    if (!status?.error.isNullOrBlank()) {
+                        return Result.failure(Exception("Strava processing error: ${status?.error}"))
+                    }
+                    if (status?.activity_id != null) {
+                        android.util.Log.d("StravaService", "Upload complete! activity_id=${status.activity_id}")
+                        return Result.success(status.activity_id)
+                    }
+                    // status is still "Your activity is still being processed."
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("StravaService", "Poll attempt ${attempt + 1} failed: ${e.message}")
+            }
+        }
+        // After 20 seconds of polling, return the upload ID as fallback
+        android.util.Log.w("StravaService", "Upload processing timed out, returning uploadId=$uploadId")
+        return Result.success(uploadId)
+    }
+
     private suspend fun uploadRunSimple(run: Run, token: String): Result<Long> {
         return retryWithBackoff(times = 3, initialDelayMs = 500) {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
@@ -220,7 +268,8 @@ class StravaService @Inject constructor(
             if (response.isSuccessful) {
                 response.body()?.id ?: throw Exception("Empty response")
             } else {
-                throw Exception("Upload failed: ${response.code()}")
+                val errorBody = response.errorBody()?.string()
+                throw Exception("Upload failed: ${response.code()} $errorBody")
             }
         }
     }
@@ -328,46 +377,51 @@ class StravaService @Inject constructor(
     // Cycling upload
     suspend fun uploadCycling(ride: CyclingWorkout): Result<Long> {
         val token = ensureValidToken() ?: return Result.failure(Exception("Not authenticated"))
-        
+
         return try {
             if (ride.routePoints.isNotEmpty()) {
-                uploadCyclingWithGpx(ride, token)
+                val gpxResult = uploadCyclingWithGpx(ride, token)
+                if (gpxResult.isSuccess) gpxResult else uploadCyclingSimple(ride, token)
             } else {
                 uploadCyclingSimple(ride, token)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("StravaService", "uploadCycling failed", e)
             Result.failure(e)
         }
     }
-    
+
     private suspend fun uploadCyclingWithGpx(ride: CyclingWorkout, token: String): Result<Long> {
-        val gpxContent = GpxGenerator.generateGpxForCycling(ride)
-        
-        val gpxBody = gpxContent.toRequestBody("application/gpx+xml".toMediaType())
-        val gpxPart = okhttp3.MultipartBody.Part.createFormData("file", "activity.gpx", gpxBody)
-        
-        val dataType = "gpx".toRequestBody("text/plain".toMediaType())
-        val name = generateCyclingName(ride).toRequestBody("text/plain".toMediaType())
-        val description = generateCyclingDescription(ride).toRequestBody("text/plain".toMediaType())
-        val sportType = if (ride.cyclingType != CyclingType.OUTDOOR) "VirtualRide" else "Ride"
-        val sportTypeBody = sportType.toRequestBody("text/plain".toMediaType())
-        
-        val response = api.uploadActivity(
-            authorization = "Bearer $token",
-            file = gpxPart,
-            dataType = dataType,
-            name = name,
-            description = description,
-            sportType = sportTypeBody
-        )
-        
-        return if (response.isSuccessful) {
-            response.body()?.let { 
-                Result.success(it.id)
-            } ?: Result.failure(Exception("Empty response"))
-        } else {
-            uploadCyclingSimple(ride, token)
+        return try {
+            val gpxContent = GpxGenerator.generateGpxForCycling(ride)
+            val gpxBody = gpxContent.toRequestBody("application/gpx+xml".toMediaType())
+            val gpxPart = okhttp3.MultipartBody.Part.createFormData("file", "activity.gpx", gpxBody)
+
+            val dataType = "gpx".toRequestBody("text/plain".toMediaType())
+            val name = generateCyclingName(ride).toRequestBody("text/plain".toMediaType())
+            val description = generateCyclingDescription(ride).toRequestBody("text/plain".toMediaType())
+            val sportType = if (ride.cyclingType != CyclingType.OUTDOOR) "VirtualRide" else "Ride"
+            val sportTypeBody = sportType.toRequestBody("text/plain".toMediaType())
+
+            val response = api.uploadActivity(
+                authorization = "Bearer $token",
+                file = gpxPart,
+                dataType = dataType,
+                name = name,
+                description = description,
+                sportType = sportTypeBody
+            )
+
+            if (response.isSuccessful) {
+                val uploadId = response.body()?.id
+                    ?: return Result.failure(Exception("Empty upload response"))
+                pollUploadStatus(uploadId, token)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Result.failure(Exception("GPX upload failed: ${response.code()} $errorBody"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
     

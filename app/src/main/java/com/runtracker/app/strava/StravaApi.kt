@@ -51,6 +51,12 @@ interface StravaApi {
         @Query("page") page: Int = 1,
         @Query("per_page") perPage: Int = 30
     ): Response<List<StravaActivity>>
+
+    @GET("uploads/{uploadId}")
+    suspend fun getUploadStatus(
+        @Header("Authorization") authorization: String,
+        @Path("uploadId") uploadId: Long
+    ): Response<StravaUploadStatus>
 }
 
 data class StravaTokenResponse(
@@ -104,6 +110,14 @@ data class StravaActivity(
 
 data class StravaUploadResponse(
     val id: Long,
-    val status: String,
-    val activity_id: Long?
+    val status: String?,
+    val activity_id: Long?,
+    val error: String?
+)
+
+data class StravaUploadStatus(
+    val id: Long,
+    val status: String?,
+    val activity_id: Long?,
+    val error: String?
 )
