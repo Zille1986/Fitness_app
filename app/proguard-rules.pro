@@ -11,6 +11,9 @@
 -keep class * implements com.google.gson.TypeAdapterFactory
 -keep class * implements com.google.gson.JsonSerializer
 -keep class * implements com.google.gson.JsonDeserializer
+# Preserve generic type info for TypeToken (R8 strips it otherwise)
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
 
 # ── Retrofit ─────────────────────────────────────────────────────
 -keepattributes RuntimeVisibleAnnotations, RuntimeVisibleParameterAnnotations
