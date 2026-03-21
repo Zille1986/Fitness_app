@@ -18,3 +18,4 @@ rootProject.name = "GoSteady"
 include(":app")
 include(":shared")
 include(":wear")
+// iosApp is built via Xcode, not Gradle — it imports the shared framework directly
