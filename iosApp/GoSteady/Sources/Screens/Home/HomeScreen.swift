@@ -1,279 +1,470 @@
 import SwiftUI
-import HealthKit
+import SwiftData
 
 struct HomeScreen: View {
-    @State private var userName = "Athlete"
-    @State private var sleepHours: Double?
-    @State private var todaySteps: Int = 0
-
-    private let healthStore = HKHealthStore()
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var viewModel = HomeViewModel()
+    @State private var showManualEntry = false
+    @State private var selectedSportForManual: SportType = .run
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
-                    // Greeting
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(greeting)
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.onSurfaceVariant)
-                        Text(userName)
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
+                if viewModel.isLoading {
+                    SkeletonList(count: 4)
+                        .padding(.horizontal)
+                        .padding(.top)
+                } else {
+                    VStack(spacing: AppSpacing.xl) {
+                        // Greeting
+                        greetingSection
+
+                        // Readiness Score
+                        readinessSection
+
+                        // Active Streak
+                        if viewModel.activeStreak > 0 {
+                            streakBanner
+                        }
+
+                        // Today's Workout Plan
+                        if let upcoming = viewModel.upcomingWorkout {
+                            upcomingWorkoutCard(upcoming)
+                        }
+
+                        // Weekly Activity Grid
+                        weeklyActivitySection
+
+                        // Quick Start Buttons
+                        quickStartSection
+
+                        // Recent Workouts
+                        recentWorkoutsSection
+
+                        Spacer(minLength: 80)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal)
-
-                    // Main Session Card (editorial hero)
-                    MainSessionCard()
-
-                    // Weekly Activity
-                    WeeklyActivityGrid()
-
-                    // Readiness Score
-                    ReadinessCard(sleepHours: sleepHours)
-
-                    // Nutrition
-                    NutritionCard()
+                    .padding(.vertical)
                 }
-                .padding(.vertical)
             }
-            .background(AppTheme.surface)
+            .background(AppTheme.adaptiveBackground(colorScheme))
             .navigationTitle("")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: Text("Profile")) {
-                        Image(systemName: "person.circle")
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("GoSteady")
+                        .font(AppTypography.headlineSmall)
+                        .foregroundStyle(AppTheme.primary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(value: AppRoute.profile) {
+                        Image(systemName: AppTheme.SportIcon.profile)
                             .foregroundStyle(AppTheme.primary)
                     }
                 }
             }
+            .sheet(isPresented: $showManualEntry) {
+                ManualWorkoutSheet(sportType: selectedSportForManual)
+            }
+            .refreshable {
+                await viewModel.load(modelContext: modelContext)
+            }
+            .navigationDestination(for: AppRoute.self) { route in
+                switch route {
+                case .profile:
+                    ProfileScreen()
+                case .settings:
+                    SettingsScreen()
+                case .achievements:
+                    AchievementsScreen()
+                case .analytics:
+                    AnalyticsDashboardScreen()
+                case .runningDashboard:
+                    RunningDashboardScreen()
+                case .gymDashboard:
+                    GymDashboardScreen()
+                case .swimmingDashboard:
+                    SwimmingDashboardScreen()
+                case .cyclingDashboard:
+                    CyclingDashboardScreen()
+                default:
+                    Text("Coming soon")
+                        .navigationTitle("GoSteady")
+                }
+            }
         }
         .task {
-            await requestHealthData()
+            await viewModel.load(modelContext: modelContext)
         }
     }
 
-    private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 0..<12: return "Good morning"
-        case 12..<17: return "Good afternoon"
-        default: return "Good evening"
+    // MARK: - Greeting
+
+    private var greetingSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.xs) {
+            Text(viewModel.greeting)
+                .font(AppTypography.bodyMedium)
+                .foregroundStyle(AppTheme.adaptiveOnSurfaceVariant(colorScheme))
+            Text(viewModel.userName)
+                .font(AppTypography.headlineLarge)
+                .foregroundStyle(AppTheme.adaptiveOnSurface(colorScheme))
         }
-    }
-
-    private func requestHealthData() async {
-        guard HKHealthStore.isHealthDataAvailable() else { return }
-
-        let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
-        let stepType = HKObjectType.quantityType(forIdentifier: .stepCount)!
-
-        do {
-            try await healthStore.requestAuthorization(toShare: [], read: [sleepType, stepType])
-            // Read last night's sleep
-            sleepHours = await readLastNightSleep()
-            todaySteps = await readTodaySteps()
-        } catch {
-            print("HealthKit auth failed: \(error)")
-        }
-    }
-
-    private func readLastNightSleep() async -> Double? {
-        let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
-        let yesterday6pm = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)!
-        let predicate = HKQuery.predicateForSamples(withStart: yesterday6pm, end: Date())
-
-        return await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(sampleType: sleepType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
-                guard let samples = samples as? [HKCategorySample] else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-                let asleepSamples = samples.filter { $0.value != HKCategoryValueSleepAnalysis.inBed.rawValue }
-                let totalSeconds = asleepSamples.reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) }
-                continuation.resume(returning: totalSeconds / 3600.0)
-            }
-            healthStore.execute(query)
-        }
-    }
-
-    private func readTodaySteps() async -> Int {
-        let stepType = HKObjectType.quantityType(forIdentifier: .stepCount)!
-        let startOfDay = Calendar.current.startOfDay(for: Date())
-        let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: Date())
-
-        return await withCheckedContinuation { continuation in
-            let query = HKStatisticsQuery(quantityType: stepType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, result, _ in
-                let steps = result?.sumQuantity()?.doubleValue(for: .count()) ?? 0
-                continuation.resume(returning: Int(steps))
-            }
-            healthStore.execute(query)
-        }
-    }
-}
-
-// MARK: - Subviews
-
-struct MainSessionCard: View {
-    var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            // Background image placeholder
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [AppTheme.primary.opacity(0.3), AppTheme.primary.opacity(0.8)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(height: 280)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Text("FREE RUN")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(AppTheme.primary)
-                        .foregroundStyle(.white)
-                        .clipShape(Capsule())
-
-                    Text("45 Minutes")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.8))
-                }
-
-                Text("Ready to Train")
-                    .font(.title)
-                    .fontWeight(.heavy)
-                    .foregroundStyle(.white)
-
-                Text("Start a new session and push your limits.")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.7))
-
-                HStack(spacing: 12) {
-                    Button("Start Session") {}
-                        .buttonStyle(.borderedProminent)
-                        .tint(AppTheme.primaryContainer)
-                        .foregroundStyle(AppTheme.onPrimaryContainer)
-
-                    Button("View Details") {}
-                        .buttonStyle(.bordered)
-                        .tint(.white.opacity(0.3))
-                        .foregroundStyle(.white)
-                }
-                .padding(.top, 8)
-            }
-            .padding(20)
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal)
     }
-}
 
-struct WeeklyActivityGrid: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("THIS WEEK")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundStyle(AppTheme.onSurfaceVariant)
-                .padding(.horizontal)
+    // MARK: - Readiness Score
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ActivityCard(icon: "figure.run", label: "Run", value: "0", sub: "0.0 km", color: AppTheme.running)
-                ActivityCard(icon: "figure.pool.swim", label: "Swim", value: "0", sub: "0 m", color: AppTheme.swimming)
-                ActivityCard(icon: "bicycle", label: "Bike", value: "0", sub: "0.0 km", color: AppTheme.cycling)
-                ActivityCard(icon: "dumbbell.fill", label: "Gym", value: "0", sub: "0 sets", color: AppTheme.gym)
+    private var readinessSection: some View {
+        VStack(spacing: AppSpacing.lg) {
+            HStack(spacing: AppSpacing.xl) {
+                // Gauge
+                ZStack {
+                    Circle()
+                        .stroke(AppTheme.adaptiveSurfaceVariant(colorScheme), lineWidth: 10)
+                        .frame(width: 100, height: 100)
+                    Circle()
+                        .trim(from: 0, to: Double(viewModel.readinessScore) / 100.0)
+                        .stroke(readinessColor, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                        .frame(width: 100, height: 100)
+                        .rotationEffect(.degrees(-90))
+                        .animation(.easeOut(duration: 1), value: viewModel.readinessScore)
+                    VStack(spacing: 2) {
+                        Text("\(viewModel.readinessScore)")
+                            .font(AppTypography.statMedium)
+                            .foregroundStyle(readinessColor)
+                        Text(viewModel.readinessLabel)
+                            .font(AppTypography.captionSmall)
+                            .foregroundStyle(AppTheme.adaptiveOnSurfaceVariant(colorScheme))
+                    }
+                }
+
+                // Stats
+                VStack(alignment: .leading, spacing: AppSpacing.md) {
+                    ReadinessRow(icon: AppTheme.SportIcon.sleep, label: "Sleep",
+                                 value: viewModel.sleepHours.map { String(format: "%.1fh", $0) } ?? "No data",
+                                 valueColor: sleepColor)
+                    ReadinessRow(icon: "heart.fill", label: "RHR",
+                                 value: viewModel.restingHeartRate.map { "\($0) bpm" } ?? "No data",
+                                 valueColor: AppTheme.adaptiveOnSurface(colorScheme))
+                    ReadinessRow(icon: "waveform.path.ecg", label: "HRV",
+                                 value: viewModel.hrv.map { String(format: "%.0f ms", $0) } ?? "No data",
+                                 valueColor: AppTheme.adaptiveOnSurface(colorScheme))
+                }
+            }
+        }
+        .padding(AppSpacing.xl)
+        .background(AppTheme.adaptiveSurface(colorScheme))
+        .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.large))
+        .padding(.horizontal)
+    }
+
+    private var readinessColor: Color {
+        switch viewModel.readinessScore {
+        case 80...: return AppTheme.success
+        case 60..<80: return AppTheme.primary
+        case 40..<60: return AppTheme.warning
+        default: return AppTheme.error
+        }
+    }
+
+    private var sleepColor: Color {
+        guard let sleep = viewModel.sleepHours else { return AppTheme.onSurfaceVariant }
+        switch sleep {
+        case 7...: return AppTheme.success
+        case 5.5..<7: return AppTheme.warning
+        default: return AppTheme.error
+        }
+    }
+
+    // MARK: - Streak Banner
+
+    private var streakBanner: some View {
+        HStack(spacing: AppSpacing.md) {
+            Image(systemName: AppTheme.SportIcon.fire)
+                .font(.title2)
+                .foregroundStyle(AppTheme.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(viewModel.activeStreak) Day Streak")
+                    .font(AppTypography.titleMedium)
+                    .foregroundStyle(AppTheme.adaptiveOnSurface(colorScheme))
+                Text("Keep it going!")
+                    .font(AppTypography.captionLarge)
+                    .foregroundStyle(AppTheme.adaptiveOnSurfaceVariant(colorScheme))
+            }
+            Spacer()
+            Text("\(viewModel.activeStreak)")
+                .font(AppTypography.statMedium)
+                .foregroundStyle(AppTheme.secondary)
+        }
+        .padding(AppSpacing.lg)
+        .background(
+            LinearGradient(
+                colors: [AppTheme.secondary.opacity(0.15), AppTheme.secondary.opacity(0.05)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium))
+        .padding(.horizontal)
+    }
+
+    // MARK: - Upcoming Workout
+
+    private func upcomingWorkoutCard(_ workout: UpcomingWorkoutData) -> some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            HStack {
+                Text("TODAY'S PLAN")
+                    .sectionHeaderStyle()
+                Spacer()
+            }
+
+            HStack(spacing: AppSpacing.md) {
+                ZStack {
+                    Circle()
+                        .fill(AppTheme.accent.opacity(0.15))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: AppTheme.SportIcon.running)
+                        .foregroundStyle(AppTheme.accent)
+                }
+
+                VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                    Text(workout.workoutType)
+                        .font(AppTypography.titleMedium)
+                        .foregroundStyle(AppTheme.adaptiveOnSurface(colorScheme))
+                    Text(workout.description)
+                        .font(AppTypography.bodySmall)
+                        .foregroundStyle(AppTheme.adaptiveOnSurfaceVariant(colorScheme))
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                if let distance = workout.targetDistance {
+                    Text(distance)
+                        .font(AppTypography.labelMedium)
+                        .foregroundStyle(AppTheme.accent)
+                        .padding(.horizontal, AppSpacing.md)
+                        .padding(.vertical, AppSpacing.xs)
+                        .background(AppTheme.accent.opacity(0.1))
+                        .clipShape(Capsule())
+                }
+            }
+
+            Button {
+                // Start workout
+            } label: {
+                Text("Start Workout")
+                    .font(AppTypography.labelLarge)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, AppSpacing.md)
+                    .background(AppTheme.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium))
+            }
+        }
+        .padding(AppSpacing.lg)
+        .background(AppTheme.adaptiveSurface(colorScheme))
+        .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.large))
+        .padding(.horizontal)
+    }
+
+    // MARK: - Weekly Activity Grid
+
+    private var weeklyActivitySection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            HStack {
+                Text("THIS WEEK")
+                    .sectionHeaderStyle()
+                Spacer()
+                Text("\(viewModel.weeklyWorkoutCount) workouts")
+                    .font(AppTypography.captionLarge)
+                    .foregroundStyle(AppTheme.primary)
+            }
+            .padding(.horizontal)
+
+            // 7-day grid
+            HStack(spacing: AppSpacing.sm) {
+                ForEach(viewModel.weeklyActivity) { day in
+                    VStack(spacing: AppSpacing.xs) {
+                        Text(day.day)
+                            .font(AppTypography.captionSmall)
+                            .foregroundStyle(day.isToday ? AppTheme.primary : AppTheme.adaptiveOnSurfaceVariant(colorScheme))
+
+                        ZStack {
+                            Circle()
+                                .fill(day.workoutCount > 0 ? AppTheme.primary : AppTheme.adaptiveSurfaceVariant(colorScheme))
+                                .frame(width: 36, height: 36)
+                            if day.workoutCount > 0 {
+                                Image(systemName: "checkmark")
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.white)
+                            }
+                        }
+
+                        if day.workoutCount > 1 {
+                            Text("\(day.workoutCount)")
+                                .font(AppTypography.captionSmall)
+                                .foregroundStyle(AppTheme.primary)
+                        } else {
+                            Text(" ")
+                                .font(AppTypography.captionSmall)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.horizontal)
+
+            // Weekly stats row
+            HStack(spacing: AppSpacing.sm) {
+                StatCard(
+                    icon: AppTheme.SportIcon.distance,
+                    value: String(format: "%.1f km", viewModel.weeklyDistanceKm),
+                    label: "Distance",
+                    color: AppTheme.running,
+                    compact: true
+                )
+                StatCard(
+                    icon: AppTheme.SportIcon.timer,
+                    value: viewModel.weeklyDurationFormatted,
+                    label: "Time",
+                    color: AppTheme.accent,
+                    compact: true
+                )
+                StatCard(
+                    icon: AppTheme.SportIcon.fire,
+                    value: "\(Int(viewModel.todayCalories))",
+                    label: "Calories",
+                    color: AppTheme.secondary,
+                    compact: true
+                )
             }
             .padding(.horizontal)
         }
     }
+
+    // MARK: - Quick Start
+
+    private var quickStartSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            Text("QUICK START")
+                .sectionHeaderStyle()
+                .padding(.horizontal)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: AppSpacing.md) {
+                    QuickStartPill(icon: AppTheme.SportIcon.running, title: "Run", color: AppTheme.running) {}
+                    QuickStartPill(icon: AppTheme.SportIcon.gym, title: "Gym", color: AppTheme.gym) {}
+                    QuickStartPill(icon: AppTheme.SportIcon.swimming, title: "Swim", color: AppTheme.swimming) {}
+                    QuickStartPill(icon: AppTheme.SportIcon.cycling, title: "Cycle", color: AppTheme.cycling) {}
+                    QuickStartPill(icon: AppTheme.SportIcon.hiit, title: "HIIT", color: AppTheme.hiit) {}
+
+                    Button {
+                        showManualEntry = true
+                    } label: {
+                        HStack(spacing: AppSpacing.sm) {
+                            Image(systemName: "plus.circle.fill")
+                            Text("Log")
+                        }
+                        .font(AppTypography.labelMedium)
+                        .foregroundStyle(AppTheme.adaptiveOnSurface(colorScheme))
+                        .padding(.horizontal, AppSpacing.lg)
+                        .padding(.vertical, AppSpacing.sm + 2)
+                        .background(AppTheme.adaptiveSurfaceVariant(colorScheme))
+                        .clipShape(Capsule())
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+
+    // MARK: - Recent Workouts
+
+    private var recentWorkoutsSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            HStack {
+                Text("RECENT")
+                    .sectionHeaderStyle()
+                Spacer()
+                Button("See All") {}
+                    .font(AppTypography.labelMedium)
+                    .foregroundStyle(AppTheme.primary)
+            }
+            .padding(.horizontal)
+
+            if viewModel.recentWorkouts.isEmpty {
+                EmptyStateView(
+                    icon: "figure.mixed.cardio",
+                    title: "No workouts yet",
+                    message: "Start your first workout to track your progress"
+                )
+                .padding(.horizontal)
+            } else {
+                VStack(spacing: AppSpacing.sm) {
+                    ForEach(viewModel.recentWorkouts) { workout in
+                        WorkoutSummaryCard(
+                            sportIcon: workout.sportIcon,
+                            sportColor: workout.sportColor,
+                            title: workout.title,
+                            duration: workout.duration,
+                            keyMetric: workout.keyMetric,
+                            date: workout.date
+                        )
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
 }
 
-struct ActivityCard: View {
+// MARK: - Supporting Views
+
+private struct ReadinessRow: View {
     let icon: String
     let label: String
     let value: String
-    let sub: String
-    let color: Color
+    let valueColor: Color
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        HStack {
+        HStack(spacing: AppSpacing.sm) {
             Image(systemName: icon)
-                .foregroundStyle(color)
-                .frame(width: 36, height: 36)
-                .background(color.opacity(0.15))
-                .clipShape(Circle())
-
-            VStack(alignment: .leading) {
-                Text(label)
-                    .font(.caption2)
-                    .foregroundStyle(AppTheme.onSurfaceVariant)
-                HStack(alignment: .bottom, spacing: 4) {
-                    Text(value).fontWeight(.bold)
-                    Text(sub).font(.caption2).foregroundStyle(AppTheme.onSurfaceVariant)
-                }
-            }
+                .font(.caption)
+                .foregroundStyle(AppTheme.adaptiveOnSurfaceVariant(colorScheme))
+                .frame(width: 20)
+            Text(label)
+                .font(AppTypography.captionLarge)
+                .foregroundStyle(AppTheme.adaptiveOnSurfaceVariant(colorScheme))
+            Spacer()
+            Text(value)
+                .font(AppTypography.labelMedium)
+                .foregroundStyle(valueColor)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(color.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
-struct ReadinessCard: View {
-    let sleepHours: Double?
+private struct QuickStartPill: View {
+    let icon: String
+    let title: String
+    let color: Color
+    let action: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("READINESS")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundStyle(AppTheme.primary)
-
-            HStack {
-                Text("Sleep")
-                Spacer()
-                if let hours = sleepHours {
-                    let h = Int(hours)
-                    let m = Int((hours - Double(h)) * 60)
-                    Text("\(h)h \(m)m")
-                        .fontWeight(.medium)
-                        .foregroundStyle(hours >= 7 ? .green : hours >= 5.5 ? .orange : .red)
-                } else {
-                    Text("No data")
-                        .foregroundStyle(AppTheme.onSurfaceVariant)
-                }
+        Button(action: action) {
+            HStack(spacing: AppSpacing.sm) {
+                Image(systemName: icon)
+                    .font(.subheadline)
+                    .foregroundStyle(color)
+                Text(title)
+                    .font(AppTypography.labelMedium)
+                    .foregroundStyle(color)
             }
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.vertical, AppSpacing.sm + 2)
+            .background(color.opacity(0.12))
+            .clipShape(Capsule())
         }
-        .padding()
-        .background(AppTheme.surfaceContainerLow)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
-    }
-}
-
-struct NutritionCard: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("NUTRITION")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundStyle(AppTheme.cycling)
-
-            Text("No data \u{2014} tap to log a meal")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.onSurfaceVariant)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.surfaceContainerLow)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
     }
 }

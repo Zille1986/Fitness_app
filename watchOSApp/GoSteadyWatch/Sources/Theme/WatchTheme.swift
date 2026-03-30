@@ -1,12 +1,15 @@
 import SwiftUI
 
-enum WatchColors {
-    static let primary = Color(hex: "00E5CC")
+enum WatchTheme {
+    static let primary = Color(hex: "4CAF50")
+    static let secondary = Color(hex: "FF9800")
+    static let background = Color.black
+
     static let swimming = Color(hex: "0288D1")
-    static let cycling = Color(hex: "7EE787")
+    static let cycling = Color(hex: "FF5722")
     static let gym = Color(hex: "FFA657")
     static let hiit = Color(hex: "FF6D00")
-    static let danger = Color(hex: "F85149")
+    static let danger = Color(hex: "E53935")
 
     static let zoneBelow = Color(hex: "64B5F6")
     static let zoneIn = Color(hex: "81C784")
@@ -17,18 +20,27 @@ enum WatchColors {
     static let intervalRecovery = Color(hex: "81C784")
     static let intervalCooldown = Color(hex: "64B5F6")
 
-    static func activityColor(_ type: ActivityType) -> Color {
+    static func activityColor(_ type: WatchActivityType) -> Color {
         switch type {
-        case .running: return primary
-        case .swimming: return swimming
-        case .cycling: return cycling
+        case .outdoorRun, .indoorRun: return primary
+        case .poolSwim, .openWaterSwim: return swimming
+        case .outdoorCycle, .indoorCycle: return cycling
         case .gym: return gym
         case .hiit: return hiit
         }
     }
+
+    static func zoneColor(_ zone: HRZone) -> Color {
+        switch zone {
+        case .zone1: return .gray
+        case .zone2: return .blue
+        case .zone3: return primary
+        case .zone4: return secondary
+        case .zone5: return danger
+        }
+    }
 }
 
-// Reuse the Color(hex:) extension from the iOS app theme
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>NSCameraUsageDescription</key>
+	<string>GoSteady uses the camera for exercise form analysis, body composition photos, and food recognition.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>GoSteady needs access to your health data to track workouts, heart rate, steps, sleep, and provide personalised fitness insights.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>GoSteady saves your workouts and fitness data to Apple Health so you can track your progress across apps.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>GoSteady needs background location access to continue tracking your route during workouts when the app is in the background.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>GoSteady uses your location to track your running, cycling, and swimming routes in real time.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>GoSteady may use the microphone for audio recording during workout sessions.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>GoSteady uses motion data to improve workout tracking accuracy and detect activity type.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>GoSteady needs access to your photo library to select images for food recognition and body analysis.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>audio</string>
+		<string>fetch</string>
+	</array>
+</dict>
+</plist>
